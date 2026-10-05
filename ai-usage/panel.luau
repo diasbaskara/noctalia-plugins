@@ -20,6 +20,21 @@ local GLYPHS = {
     kimi = "moon",
 }
 
+-- Where to send the user for keys / sign-in, mirroring the community plugin.
+local DASHBOARDS = {
+    anthropic = "https://claude.ai/settings/usage",
+    openai = "https://chatgpt.com/codex/settings/usage",
+    copilot = "https://github.com/settings/copilot",
+    cursor = "https://www.cursor.com/settings",
+    grok = "https://console.x.ai/",
+    supergrok = "https://grok.com/",
+    ["opencode-go"] = "https://opencode.ai/console/",
+    zai = "https://z.ai",
+    openrouter = "https://openrouter.ai/activity",
+    deepseek = "https://platform.deepseek.com/",
+    kimi = "https://platform.moonshot.cn/",
+}
+
 local ICONS = {
     anthropic = true, openai = true, copilot = true, cursor = true,
     grok = true, supergrok = true, ["opencode-go"] = true,
@@ -158,6 +173,60 @@ local function tabRow(list)
     return ui.row({ gap = 6, align = "center" }, tabs)
 end
 
+local function openDashboard(url)
+    if type(noctalia.runAsync) == "function" then
+        noctalia.runAsync("xdg-open '" .. url .. "'")
+    end
+end
+
+local function terminalLogin(cmd, fallbackHint)
+    if type(noctalia.runInTerminal) == "function" then
+        noctalia.runInTerminal(cmd)
+    else
+        if type(noctalia.copyToClipboard) == "function" then
+            noctalia.copyToClipboard(cmd, "text/plain")
+        end
+        if type(noctalia.notify) == "function" then
+            noctalia.notify("Run this in a terminal", fallbackHint or cmd)
+        end
+    end
+end
+
+-- Contextual actions for a failed provider: terminal login where the vendor
+-- has a CLI flow, dashboard link where a key is needed.
+local function errorActions(entry)
+    local base = baseProvider(entry.id)
+    local message = tostring(entry.error or ""):lower()
+    local actions = {}
+    if base == "cursor" then
+        actions[#actions + 1] = ui.button({
+            text = "Log in with Cursor", variant = "primary", controlSize = "sm",
+            onClick = function() terminalLogin("cursor-agent login") end,
+        })
+    elseif base == "supergrok" then
+        actions[#actions + 1] = ui.button({
+            text = "Log in with Grok", variant = "primary", controlSize = "sm",
+            onClick = function() terminalLogin("grok login") end,
+        })
+    end
+    if message:find("no api key", 1, true) or message:find("api_key", 1, true) then
+        local dash = DASHBOARDS[base]
+        if dash ~= nil then
+            actions[#actions + 1] = ui.button({
+                text = "Open dashboard for key", variant = "outline", controlSize = "sm",
+                onClick = function() openDashboard(dash) end,
+            })
+        end
+    elseif DASHBOARDS[base] ~= nil then
+        actions[#actions + 1] = ui.button({
+            text = "Open dashboard", variant = "ghost", controlSize = "sm",
+            onClick = function() openDashboard(DASHBOARDS[base]) end,
+        })
+    end
+    if #actions == 0 then return nil end
+    return ui.row({ gap = 8, align = "center" }, actions)
+end
+
 function render()
     local list = listEntries()
     local current = currentEntry()
@@ -193,6 +262,8 @@ function render()
                 text = tostring(current.error or "error"), fontSize = 12,
                 fontWeight = "medium", color = "error",
             })
+            local actions = errorActions(current)
+            if actions ~= nil then children[#children + 1] = actions end
         else
             local metrics = type(current.metrics) == "table" and current.metrics or {}
             if #metrics == 0 then
