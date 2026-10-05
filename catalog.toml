@@ -6,8 +6,8 @@
 [[plugin]]
 id = "diasbaskara/ai-usage"
 name = "AI Usage Multi"
-version = "1.10.2"
-updated_at = 1791187669
+version = "1.11.0"
+updated_at = 1791187834
 added_at = 1791178776
 author = "diasbaskara"
 license = "MIT"

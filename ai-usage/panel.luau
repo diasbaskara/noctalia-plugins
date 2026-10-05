@@ -214,6 +214,9 @@ end
 local function tabNode(entry, active)
     local id = entry.id
     local failedTab = entry.status == "error"
+    local title = tabName(entry)
+    local plan = noctalia.string.trim(tostring(entry.plan or ""))
+    if plan ~= "" and plan ~= title then title = title .. " · " .. plan end
     local children = {
         providerMark(baseProvider(entry.id), 14, active and "primary" or "on_surface"),
         ui.label({
