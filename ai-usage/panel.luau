@@ -1,10 +1,9 @@
 --!nonstrict
--- Tabbed details panel: one tab per provider in the report, limit cards in
--- the shared usage-card style (hairline outline, pill value chips, clock
--- reset rows). `r` refreshes, arrows switch tabs, escape closes.
+-- Details panel: provider sidebar, limit cards in the shared usage-card
+-- style (hairline outline, pill value chips, clock reset rows). `r`
+-- refreshes, arrows switch providers, escape closes.
 
-local WARNING = "#F5A623"
-local CARD = { gap = 5, padding = 7, radius = 9, fill = "surface_variant/0.34", border = "outline/0.08", borderWidth = 1 }
+local CARD = { gap = 5, padding = 7, radius = 9, fill = "surface_variant/0.50", border = "outline/0.15", borderWidth = 1 }
 
 local GLYPHS = {
     anthropic = "asterisk-simple",
@@ -140,12 +139,13 @@ local function currentEntry()
     return list[1]
 end
 
+-- Brightness ladder instead of a hardcoded warning hex: in a monochrome
+-- theme the roles climb #aaa -> #ccc -> #ddd, and in a coloured theme the
+-- accent (tertiary) still separates "getting tight" from "calm".
 local function limitColor(fraction)
     if fraction >= 0.97 then return "error" end
-    if fraction >= 0.70 then return WARNING end
-    -- Calm windows draw in the theme's accent role so the bars read as a
-    -- gauge, not as body text.
-    return "tertiary"
+    if fraction >= 0.70 then return "tertiary" end
+    return "primary"
 end
 
 local function chip(text, color)
@@ -191,7 +191,7 @@ local function metricCard(m)
     if m.percent ~= nil then
         children[#children + 1] = ui.progress({
             progress = math.min(1, math.max(0, percent / 100)),
-            fill = tint, track = "on_surface/0.10", height = 5, radius = 2,
+            fill = tint, track = "on_surface/0.15", height = 5, radius = 2,
         })
     end
 
@@ -461,8 +461,8 @@ local function sidebarItem(entry, active)
         key = "nav:" .. tostring(entry.id),
         gap = 7, align = "center", paddingH = 12, paddingV = 6,
         minHeight = 32, radius = 8,
-        fill = active and "primary/0.14" or "surface_variant/0.22",
-        border = active and "primary/0.45" or "outline/0.08",
+        fill = active and "primary/0.18" or "surface_variant/0.40",
+        border = active and "primary/0.45" or "outline/0.15",
         borderWidth = 1,
         tooltip = tabName(entry) .. (plan ~= "" and (" · " .. plan) or ""),
         onClick = function()
@@ -536,7 +536,7 @@ function render()
         if tip ~= "" then
             children[#children + 1] = ui.row({
                 gap = 6, align = "center", paddingH = 10, paddingV = 8, radius = 9,
-                fill = "surface_variant/0.34", border = "outline/0.08", borderWidth = 1,
+                fill = "surface_variant/0.50", border = "outline/0.15", borderWidth = 1,
             }, {
                 ui.glyph({ name = "bulb", size = 12, color = "secondary" }),
                 ui.label({ text = tip, fontSize = 11, color = "secondary", maxLines = 2, flexGrow = 1 }),

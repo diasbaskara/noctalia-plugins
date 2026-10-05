@@ -158,7 +158,13 @@ local function chip(entry, wanted, isVert)
         if m ~= nil then
             local pct = tonumber(m.percent)
             text = pct ~= nil and string.format("%d%%", pct) or tostring(m.value or "")
-            if pct ~= nil and pct >= 90 then color = "error" end
+            if pct ~= nil then
+                if pct >= 90 then
+                    color = "error"
+                elseif pct >= 70 then
+                    color = "tertiary"
+                end
+            end
         end
     end
 
