@@ -226,77 +226,6 @@ local function normalizePlan(plan)
     return table.concat(words, " ")
 end
 
-local function tabNode(entry, active)
-    local id = entry.id
-    local failedTab = entry.status == "error"
-    local title = tabName(entry)
-    local plan = normalizePlan(entry.plan)
-    if plan ~= "" and plan ~= title then title = title .. " · " .. plan end
-    local children = {
-        providerMark(baseProvider(entry.id), 14, active and "primary" or "on_surface"),
-        ui.label({
-            text = title, fontSize = 12,
-            fontWeight = active and "bold" or "medium",
-            color = active and "primary" or "on_surface",
-            maxLines = 1, maxWidth = 360,
-        }),
-    }
-    if failedTab then
-        children[#children + 1] = ui.glyph({ name = "alert-circle", size = 12, color = "error" })
-    end
-    return ui.row({
-        -- Stable identity: without it the host can leave a previous render's
-        -- closures on the rows, so the highlight sticks to the old tab.
-        key = "tab:" .. tostring(id),
-        gap = 6, align = "center", paddingH = 12, paddingV = 6,
-        minHeight = 32, radius = 8,
-        fill = active and "primary/0.14" or "surface_variant/0.22",
-        border = active and "primary/0.45" or "outline/0.08",
-        borderWidth = 1,
-        onClick = function()
-            selected = id
-            noctalia.state.set("selected", id)
-            render()
-        end,
-    }, children)
-end
-
-local function tabRow(list)
-    -- Content-sized tabs wrap when the next one would overrun the panel
-    -- width. A fixed count-of-three still overflowed whenever the plan
-    -- suffixes made the labels long, so wrap on an estimated pixel width.
-    local MAX_ROW = 440
-    local TAB_CHROME = 44 -- padH 12*2 + icon 14 + inner gap 6
-    local CHAR_W = 7
-
-    local function tabTitle(entry)
-        local title = tabName(entry)
-        local plan = normalizePlan(entry.plan)
-        if plan ~= "" and plan ~= title then title = title .. " · " .. plan end
-        return title
-    end
-
-    local rows = {}
-    local currentRow = {}
-    local currentWidth = 0
-    local current = currentEntry()
-    for _, entry in ipairs(list) do
-        local w = TAB_CHROME + #tabTitle(entry) * CHAR_W
-        if #currentRow > 0 and currentWidth + 6 + w > MAX_ROW then
-            rows[#rows + 1] = ui.row({ gap = 6, align = "center" }, currentRow)
-            currentRow = {}
-            currentWidth = 0
-        end
-        currentRow[#currentRow + 1] = tabNode(entry, current ~= nil and entry.id == current.id)
-        currentWidth = currentWidth + (currentWidth > 0 and 6 or 0) + w
-    end
-    if #currentRow > 0 then
-        rows[#rows + 1] = ui.row({ gap = 6, align = "center" }, currentRow)
-    end
-    if #rows == 1 then return rows[1] end
-    return ui.column({ gap = 6, align = "stretch" }, rows)
-end
-
 local function openDashboard(url)
     if type(noctalia.runAsync) == "function" then
         noctalia.runAsync("xdg-open '" .. url .. "'")
@@ -457,6 +386,43 @@ local function errorActions(entry)
     return ui.row({ gap = 8, align = "center" }, actions)
 end
 
+-- Sidebar: one vertical item per provider. Active gets the primary tint; a
+-- failed provider keeps its red dot.
+local function sidebarItem(entry, active)
+    local children = {
+        providerMark(baseProvider(entry.id), 14, active and "primary" or "on_surface_variant"),
+        ui.label({
+            text = tabName(entry), fontSize = 12,
+            fontWeight = active and "semibold" or "medium",
+            color = active and "primary" or "on_surface",
+            maxLines = 1, flexGrow = 1,
+        }),
+    }
+    if entry.status == "error" then
+        children[#children + 1] = ui.glyph({ name = "alert-circle", size = 12, color = "error" })
+    end
+    return ui.row({
+        key = "nav:" .. tostring(entry.id),
+        gap = 7, align = "center", paddingH = 9, paddingV = 6, radius = 7,
+        fill = active and "primary/0.14" or nil,
+        tooltip = tabName(entry) .. (entry.plan ~= nil and (" · " .. normalizePlan(entry.plan)) or ""),
+        onClick = function()
+            selected = entry.id
+            noctalia.state.set("selected", entry.id)
+            render()
+        end,
+    }, children)
+end
+
+local function sidebar(list)
+    local items = {}
+    local current = currentEntry()
+    for _, entry in ipairs(list) do
+        items[#items + 1] = sidebarItem(entry, current ~= nil and entry.id == current.id)
+    end
+    return ui.column({ gap = 4, width = 172, align = "stretch" }, items)
+end
+
 function render()
     local list = listEntries()
     local current = currentEntry()
@@ -486,30 +452,35 @@ function render()
                 ui.label({ text = tip, fontSize = 11, color = "secondary", maxLines = 2 }),
             })
         end
-        children[#children + 1] = tabRow(list)
+
+        local content = {}
         if current == nil then
-            children[#children + 1] = ui.label({ text = "No provider selected.", color = "on_surface_variant" })
+            content[#content + 1] = ui.label({ text = "No provider selected.", color = "on_surface_variant" })
         else
             if current.status == "error" then
-            local errTitle, errBody = friendlyError(current)
-            children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
-                ui.glyph({ name = "alert-triangle", size = 16, color = "error" }),
-                ui.label({ text = errTitle, fontSize = 14, fontWeight = "semibold", color = "on_surface", maxLines = 1 }),
-            })
-            children[#children + 1] = ui.label({ text = errBody, fontSize = 12, color = "on_surface_variant" })
-            local actions = errorActions(current)
-            if actions ~= nil then children[#children + 1] = actions end
-        else
-            local metrics = type(current.metrics) == "table" and current.metrics or {}
-            if #metrics == 0 then
-                children[#children + 1] = ui.label({ text = "No readings.", color = "on_surface_variant" })
-            end
-            for _, m in ipairs(metrics) do
-                if type(m) == "table" then children[#children + 1] = metricCard(m) end
+                local errTitle, errBody = friendlyError(current)
+                content[#content + 1] = ui.row({ gap = 8, align = "center" }, {
+                    ui.glyph({ name = "alert-triangle", size = 16, color = "error" }),
+                    ui.label({ text = errTitle, fontSize = 14, fontWeight = "semibold", color = "on_surface", maxLines = 1 }),
+                })
+                content[#content + 1] = ui.label({ text = errBody, fontSize = 12, color = "on_surface_variant" })
+                local actions = errorActions(current)
+                if actions ~= nil then content[#content + 1] = actions end
+            else
+                local metrics = type(current.metrics) == "table" and current.metrics or {}
+                if #metrics == 0 then
+                    content[#content + 1] = ui.label({ text = "No readings.", color = "on_surface_variant" })
+                end
+                for _, m in ipairs(metrics) do
+                    if type(m) == "table" then content[#content + 1] = metricCard(m) end
+                end
             end
         end
+        children[#children + 1] = ui.row({ gap = 12, align = "stretch", flexGrow = 1 }, {
+            sidebar(list),
+            ui.column({ gap = 8, align = "stretch", flexGrow = 1 }, content),
+        })
     end
-end
 
     panel.render(ui.column({ gap = 8, paddingH = 10, paddingV = 8, flexGrow = 1, align = "stretch" }, children))
 end

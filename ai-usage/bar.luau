@@ -114,6 +114,34 @@ local function countdown(resetAt)
     return string.format("%dm", rest)
 end
 
+-- "2026-10-05T10:09:59Z" -> epoch seconds. Duplicated from the panel on
+-- purpose: the entries are separate runtimes, so a shared module would only
+-- add a file to keep in sync.
+local function epochOf(resetAt)
+    if type(resetAt) ~= "string" then return nil end
+    local y, mo, d, h, mi, s = resetAt:match("^(%d+)%-(%d+)%-(%d+)T(%d+):(%d+):(%d+)")
+    if y == nil then return nil end
+    local asLocal = os.time({
+        year = tonumber(y), month = tonumber(mo), day = tonumber(d),
+        hour = tonumber(h), min = tonumber(mi), sec = tonumber(s),
+    })
+    local utc = os.date("!*t", asLocal)
+    utc.isdst = nil
+    return asLocal + (asLocal - os.time(utc))
+end
+
+-- Soonest reset among the entry's windows; nil when nothing resets.
+local function resetKey(entry)
+    if entry == nil or entry.status == "error" then return nil end
+    local best
+    local metrics = type(entry.metrics) == "table" and entry.metrics or {}
+    for _, m in ipairs(metrics) do
+        local at = epochOf(m.reset_at)
+        if at ~= nil and (best == nil or at < best) then best = at end
+    end
+    return best
+end
+
 local function chip(entry, wanted, isVert)
     local nodes = {}
     local color = "on_surface"
@@ -182,18 +210,39 @@ local function tooltip()
     return rows
 end
 
+local function orderedVendors()
+    -- Soonest reset first on the left; providers with no reset (or an error)
+    -- keep their configured order after the sorted ones.
+    local list = {}
+    for index, wanted in ipairs(vendors) do
+        local entry = findEntry(wanted)
+        list[#list + 1] = { wanted = wanted, entry = entry, index = index }
+    end
+    table.sort(list, function(a, b)
+        local ka, kb = resetKey(a.entry), resetKey(b.entry)
+        if ka ~= nil and kb ~= nil then
+            if ka ~= kb then return ka < kb end
+            return a.index < b.index
+        end
+        if ka ~= nil then return true end
+        if kb ~= nil then return false end
+        return a.index < b.index
+    end)
+    return list
+end
+
 local function render()
     local isVert = type(barWidget.isVertical) == "function" and barWidget.isVertical() or false
     local children = {}
-    for _, wanted in ipairs(vendors) do
-        local entry = findEntry(wanted)
+    for _, item in ipairs(orderedVendors()) do
+        local entry = item.entry
         if entry ~= nil then
             if #children > 0 then
                 children[#children + 1] = isVert
                     and ui.box({ width = 12, height = 1, fill = "on_surface_variant", opacity = 0.3 })
                     or ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" })
             end
-            children[#children + 1] = chip(entry, wanted, isVert)
+            children[#children + 1] = chip(entry, item.wanted, isVert)
         end
     end
     if #children == 0 then
