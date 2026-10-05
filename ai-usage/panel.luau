@@ -179,21 +179,50 @@ local function openDashboard(url)
     end
 end
 
-local function terminalLogin(cmd, fallbackHint)
+local function terminalLogin(cmd)
+    -- Trailing read keeps the window open: without it the terminal flashes
+    -- shut when the command ends and the approval link is lost with it.
+    local wrapped = cmd .. '; echo; read -r -p "Done - press Enter to close. " _'
     if type(noctalia.runInTerminal) == "function" then
-        noctalia.runInTerminal(cmd)
+        noctalia.runInTerminal("sh -c '" .. wrapped:gsub("'", "'\\''") .. "'")
     else
         if type(noctalia.copyToClipboard) == "function" then
             noctalia.copyToClipboard(cmd, "text/plain")
         end
         if type(noctalia.notify) == "function" then
-            noctalia.notify("Run this in a terminal", fallbackHint or cmd)
+            noctalia.notify("Run this in a terminal", cmd)
         end
     end
 end
 
--- Contextual actions for a failed provider: terminal login where the vendor
--- has a CLI flow, dashboard link where a key is needed.
+local KEY_ENV = {
+    ["opencode-go"] = "OPENCODE_GO_API_KEY",
+    grok = "XAI_MANAGEMENT_KEY",
+    openrouter = "OPENROUTER_API_KEY",
+    deepseek = "DEEPSEEK_API_KEY",
+    zai = "ZAI_API_KEY",
+    kimi = "KIMI_API_KEY",
+}
+
+-- Friendly copy for failed providers. Raw CLI errors never reach the screen.
+local function friendlyError(entry)
+    local base = baseProvider(entry.id)
+    local message = tostring(entry.error or ""):lower()
+    if base == "cursor" or message:find("401", 1, true) or message:find("403", 1, true)
+        or message:find("expired", 1, true) or message:find("unauthorized", 1, true) then
+        return "Sign-in required",
+            "Your " .. tabName(entry) .. " session expired. Log in again below, then refresh."
+    end
+    if message:find("no api key", 1, true) then
+        local env = KEY_ENV[base]
+        local hint = env ~= nil
+            and ("Set " .. env .. " or add api_key under [" .. base .. "] in ~/.config/ai-usagebar/config.toml.")
+            or "Add its api_key in ~/.config/ai-usagebar/config.toml."
+        return "API key needed", tabName(entry) .. " has no key yet. " .. hint
+    end
+    return "Temporarily unavailable",
+        tabName(entry) .. " could not be read right now. It retries automatically."
+end
 local function errorActions(entry)
     local base = baseProvider(entry.id)
     local message = tostring(entry.error or ""):lower()
@@ -260,10 +289,12 @@ function render()
                 ui.label({ text = tabName(current), fontSize = 14, fontWeight = "semibold", color = "on_surface", maxLines = 1 }),
             })
             if current.status == "error" then
-            children[#children + 1] = ui.label({
-                text = tostring(current.error or "error"), fontSize = 12,
-                fontWeight = "medium", color = "error",
+            local errTitle, errBody = friendlyError(current)
+            children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
+                ui.glyph({ name = "alert-triangle", size = 16, color = "error" }),
+                ui.label({ text = errTitle, fontSize = 14, fontWeight = "semibold", color = "on_surface", maxLines = 1 }),
             })
+            children[#children + 1] = ui.label({ text = errBody, fontSize = 12, color = "on_surface_variant" })
             local actions = errorActions(current)
             if actions ~= nil then children[#children + 1] = actions end
         else
