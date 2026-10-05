@@ -1,6 +1,6 @@
 id = "diasbaskara/ai-usage"
 name = "AI Usage Multi"
-version = "1.7.2"
+version = "1.8.0"
 plugin_api = 22
 author = "diasbaskara"
 license = "MIT"
@@ -34,7 +34,7 @@ entry = "bar.luau"
   right = "plugin diasbaskara/ai-usage:poller all refresh"
 
 # Comma-separated provider ids, in display order.
-# Valid: anthropic | openai | copilot | cursor | supergrok | grok |
+# Valid: anthropic | openai | copilot | cursor | supergrok | grok | grokbot |
 # opencode-go | zai | openrouter | deepseek | kimi | and the rest
 # `ai-usagebar vendors` knows. A provider that is disabled or missing a
 # credential is skipped (its error stays visible in the panel).
@@ -43,7 +43,7 @@ key = "vendors"
 type = "string"
 label_key = "settings.vendors.label"
 description_key = "settings.vendors.description"
-default = "anthropic,cursor,supergrok,opencode-go"
+default = "anthropic,cursor,supergrok,opencode-go,grokbot"
 
 [[widget.setting]]
 key = "show_glyph"

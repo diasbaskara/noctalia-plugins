@@ -26,6 +26,7 @@ local GLYPHS = {
     openrouter = "route",
     deepseek = "fish",
     kimi = "moon",
+    grokbot = "brand-x",
 }
 
 -- Providers with real brand SVGs in icons/ (white for dark themes, dark for
@@ -35,6 +36,7 @@ local ICONS = {
     anthropic = true, openai = true, copilot = true, cursor = true,
     grok = true, supergrok = true, ["opencode-go"] = true,
     openrouter = true, deepseek = true, kimi = true,
+    grokbot = true,
 }
 
 local function providerMark(wanted, size, color)

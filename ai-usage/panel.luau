@@ -18,6 +18,7 @@ local GLYPHS = {
     openrouter = "route",
     deepseek = "fish",
     kimi = "moon",
+    grokbot = "brand-x",
 }
 
 -- Where to send the user for keys / sign-in, mirroring the community plugin.
@@ -39,6 +40,7 @@ local ICONS = {
     anthropic = true, openai = true, copilot = true, cursor = true,
     grok = true, supergrok = true, ["opencode-go"] = true,
     openrouter = true, deepseek = true, kimi = true,
+    grokbot = true,
 }
 
 local function providerMark(wanted, size, color)
@@ -349,6 +351,10 @@ local function friendlyError(entry)
         or message:find("expired", 1, true) or message:find("unauthorized", 1, true) then
         return "Sign-in required",
             "Your " .. tabName(entry) .. " session expired. Log in again below, then refresh."
+    end
+    if message:find("no credential file", 1, true) or base == "grokbot" then
+        return "App sign-in needed",
+            "Install the Grok Bot desktop app and sign in to it, then refresh."
     end
     if message:find("no api key", 1, true) then
         local env = KEY_ENV[base]
