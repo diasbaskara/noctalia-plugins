@@ -211,11 +211,25 @@ local function globalTip(list)
     return "Use " .. who .. " " .. what .. " first - most headroom."
 end
 
+-- "Cursor Pro_student" -> "Cursor Pro Student". Only all-lowercase words
+-- are capitalized, so camelCase names like OpenCode survive untouched.
+local function normalizePlan(plan)
+    local words = {}
+    for word in tostring(plan or ""):gmatch("[^%s_]+") do
+        if word:match("^[a-z]+$") then
+            words[#words + 1] = word:sub(1, 1):upper() .. word:sub(2)
+        else
+            words[#words + 1] = word
+        end
+    end
+    return table.concat(words, " ")
+end
+
 local function tabNode(entry, active)
     local id = entry.id
     local failedTab = entry.status == "error"
     local title = tabName(entry)
-    local plan = noctalia.string.trim(tostring(entry.plan or ""))
+    local plan = normalizePlan(entry.plan)
     if plan ~= "" and plan ~= title then title = title .. " · " .. plan end
     local children = {
         providerMark(baseProvider(entry.id), 14, active and "primary" or "on_surface"),
