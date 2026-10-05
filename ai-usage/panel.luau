@@ -143,7 +143,9 @@ end
 local function limitColor(fraction)
     if fraction >= 0.97 then return "error" end
     if fraction >= 0.70 then return WARNING end
-    return "primary"
+    -- Calm windows draw in the theme's accent role so the bars read as a
+    -- gauge, not as body text.
+    return "tertiary"
 end
 
 local function chip(text, color)
