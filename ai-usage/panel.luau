@@ -173,37 +173,35 @@ local function parseEpoch(resetAt)
     return asLocal + (asLocal - os.time(utc))
 end
 
--- Which window to spend from first: the usable window renewing soonest
--- (spend it before it resets), otherwise the roomiest one.
-local function usageTip(entry)
-    local metrics = type(entry.metrics) == "table" and entry.metrics or {}
-    local best, bestAt, roomiest = nil, nil, nil
-    for _, m in ipairs(metrics) do
-        if type(m) == "table" then
-            local pct = tonumber(m.percent) or 0
-            if pct < 100 then
-                local at = parseEpoch(m.reset_at)
-                if best == nil or (at ~= nil and (bestAt == nil or at < bestAt)) then
-                    best, bestAt = m, at
-                end
-                if roomiest == nil or pct < (tonumber(roomiest.percent) or 0) then
-                    roomiest = m
+-- Across every provider: which window to spend from first. Soonest-renewing
+-- usable window wins (spend it before it resets); otherwise the roomiest one.
+local function globalTip(list)
+    local best, bestAt, bestEntry = nil, nil, nil
+    local usable = 0
+    for _, entry in ipairs(list) do
+        if type(entry) == "table" and entry.status ~= "error" then
+            local metrics = type(entry.metrics) == "table" and entry.metrics or {}
+            for _, m in ipairs(metrics) do
+                if type(m) == "table" and (tonumber(m.percent) or 0) < 100 then
+                    usable = usable + 1
+                    local at = parseEpoch(m.reset_at)
+                    if best == nil or (at ~= nil and (bestAt == nil or at < bestAt)) then
+                        best, bestAt, bestEntry = m, at, entry
+                    end
                 end
             end
         end
     end
     if best == nil then
-        if #metrics > 0 then return "All windows exhausted - usage resumes at the next reset." end
+        if usable == 0 and #list > 0 then return "All quotas exhausted - usage resumes at the next reset." end
         return ""
     end
-    local label = tostring(best.label or "quota")
+    local who = tabName(bestEntry)
+    local what = tostring(best.label or "quota")
     if bestAt ~= nil then
-        return "Use " .. label .. " first - it resets " .. countdown(best.reset_at) .. "."
+        return "Use " .. who .. " " .. what .. " first - resets " .. countdown(best.reset_at) .. "."
     end
-    if roomiest ~= nil and roomiest ~= best then
-        label = tostring(roomiest.label or label)
-    end
-    return "Use " .. label .. " first - it has the most headroom."
+    return "Use " .. who .. " " .. what .. " first - most headroom."
 end
 
 local function tabNode(entry, active)
@@ -420,6 +418,13 @@ function render()
             text = "Waiting for ai-usagebar…", fontSize = 13, color = "on_surface_variant",
         })
     else
+        local tip = globalTip(list)
+        if tip ~= "" then
+            children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
+                ui.glyph({ name = "bulb", size = 12, color = "secondary" }),
+                ui.label({ text = tip, fontSize = 11, color = "secondary", maxLines = 2 }),
+            })
+        end
         children[#children + 1] = tabRow(list)
         if current == nil then
             children[#children + 1] = ui.label({ text = "No provider selected.", color = "on_surface_variant" })
@@ -434,15 +439,6 @@ function render()
                 headRow[#headRow + 1] = chip(plan, "primary")
             end
             children[#children + 1] = ui.row({ gap = 8, align = "center" }, headRow)
-            if current.status ~= "error" then
-                local tip = usageTip(current)
-                if tip ~= "" then
-                    children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
-                        ui.glyph({ name = "bulb", size = 12, color = "secondary" }),
-                        ui.label({ text = tip, fontSize = 11, color = "secondary", maxLines = 2 }),
-                    })
-                end
-            end
             if current.status == "error" then
             local errTitle, errBody = friendlyError(current)
             children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
