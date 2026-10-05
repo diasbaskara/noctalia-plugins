@@ -390,14 +390,25 @@ end
 -- failed provider keeps its red dot.
 local function sidebarItem(entry, active)
     local labelWidth = entry.status == "error" and 92 or 100
-    local children = {
-        providerMark(baseProvider(entry.id), 14, active and "primary" or "on_surface_variant"),
+    local texts = {
         ui.label({
             text = tabName(entry), fontSize = 12,
             fontWeight = active and "semibold" or "medium",
             color = active and "primary" or "on_surface",
-            maxLines = 1, maxWidth = labelWidth, flexGrow = 1,
+            maxLines = 1, maxWidth = labelWidth,
         }),
+    }
+    local plan = normalizePlan(entry.plan)
+    if plan ~= "" then
+        texts[#texts + 1] = ui.label({
+            text = plan, fontSize = 10,
+            color = "on_surface_variant",
+            maxLines = 1, maxWidth = labelWidth,
+        })
+    end
+    local children = {
+        providerMark(baseProvider(entry.id), 14, active and "primary" or "on_surface_variant"),
+        ui.column({ gap = 1, flexGrow = 1, align = "start" }, texts),
     }
     if entry.status == "error" then
         children[#children + 1] = ui.glyph({ name = "alert-circle", size = 12, color = "error" })
@@ -409,7 +420,7 @@ local function sidebarItem(entry, active)
         fill = active and "primary/0.14" or "surface_variant/0.22",
         border = active and "primary/0.45" or "outline/0.08",
         borderWidth = 1,
-        tooltip = tabName(entry) .. (entry.plan ~= nil and (" · " .. normalizePlan(entry.plan)) or ""),
+        tooltip = tabName(entry) .. (plan ~= "" and (" · " .. plan) or ""),
         onClick = function()
             selected = entry.id
             noctalia.state.set("selected", entry.id)
