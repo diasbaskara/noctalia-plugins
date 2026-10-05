@@ -43,12 +43,13 @@ local ICONS = {
     grokbot = true,
 }
 
-local ICON_EXT = { grokbot = "png", grok = "png" }
+local ICON_EXT = { grokbot = "png", grok = "png", anthropic = "png" }
+local ICON_FILE = { supergrok = "grok" }
 
 local function providerMark(wanted, size, color)
     if ICONS[wanted] then
         return ui.image({
-            path = "icons/" .. wanted .. (noctalia.isDarkMode() and "" or "-light") .. "." .. (ICON_EXT[wanted] or "svg"),
+            path = "icons/" .. (ICON_FILE[wanted] or wanted) .. (noctalia.isDarkMode() and "" or "-light") .. "." .. (ICON_EXT[ICON_FILE[wanted] or wanted] or "svg"),
             width = size, height = size, fit = "contain",
         })
     end

@@ -1,6 +1,6 @@
 id = "diasbaskara/ai-usage"
 name = "AI Usage Multi"
-version = "1.11.2"
+version = "1.12.0"
 plugin_api = 22
 author = "diasbaskara"
 license = "MIT"
