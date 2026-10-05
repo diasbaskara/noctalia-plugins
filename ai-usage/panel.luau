@@ -238,7 +238,7 @@ local function tabNode(entry, active)
             text = title, fontSize = 12,
             fontWeight = active and "bold" or "medium",
             color = active and "primary" or "on_surface",
-            maxLines = 1,
+            maxLines = 1, maxWidth = 360,
         }),
     }
     if failedTab then
@@ -262,23 +262,39 @@ local function tabNode(entry, active)
 end
 
 local function tabRow(list)
-    -- Wrap into rows of three: the manifest width is fixed, so tabs flow
-    -- instead of overflowing it.
+    -- Content-sized tabs wrap when the next one would overrun the panel
+    -- width. A fixed count-of-three still overflowed whenever the plan
+    -- suffixes made the labels long, so wrap on an estimated pixel width.
+    local MAX_ROW = 440
+    local TAB_CHROME = 44 -- padH 12*2 + icon 14 + inner gap 6
+    local CHAR_W = 7
+
+    local function tabTitle(entry)
+        local title = tabName(entry)
+        local plan = normalizePlan(entry.plan)
+        if plan ~= "" and plan ~= title then title = title .. " · " .. plan end
+        return title
+    end
+
     local rows = {}
     local currentRow = {}
+    local currentWidth = 0
     local current = currentEntry()
     for _, entry in ipairs(list) do
-        currentRow[#currentRow + 1] = tabNode(entry, current ~= nil and entry.id == current.id)
-        if #currentRow >= 3 then
+        local w = TAB_CHROME + #tabTitle(entry) * CHAR_W
+        if #currentRow > 0 and currentWidth + 6 + w > MAX_ROW then
             rows[#rows + 1] = ui.row({ gap = 6, align = "center" }, currentRow)
             currentRow = {}
+            currentWidth = 0
         end
+        currentRow[#currentRow + 1] = tabNode(entry, current ~= nil and entry.id == current.id)
+        currentWidth = currentWidth + (currentWidth > 0 and 6 or 0) + w
     end
     if #currentRow > 0 then
         rows[#rows + 1] = ui.row({ gap = 6, align = "center" }, currentRow)
     end
     if #rows == 1 then return rows[1] end
-    return ui.column({ gap = 6 }, rows)
+    return ui.column({ gap = 6, align = "stretch" }, rows)
 end
 
 local function openDashboard(url)
