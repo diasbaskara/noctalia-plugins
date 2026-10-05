@@ -64,6 +64,9 @@ end
 
 local DISPLAY_NAMES = {
     ["opencode-go"] = "OpenCode",
+    -- The subscription; [grok] (API prepaid dollars) is a separate billing
+    -- product and stays disabled without a management key.
+    ["supergrok"] = "Grok",
 }
 
 local function tabName(entry)
