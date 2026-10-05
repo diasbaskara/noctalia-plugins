@@ -135,7 +135,7 @@ local function metricCard(m)
 
     local children = {}
     children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
-        ui.label({ text = tostring(m.label or ""), fontSize = 13, fontWeight = "semibold", color = "on_surface", maxLines = 1 }),
+        ui.label({ text = tostring(m.label or ""), fontSize = 13, fontWeight = "semibold", color = "on_surface", maxLines = 1, maxWidth = 150, flexGrow = 1 }),
         ui.spacer({ flexGrow = 1 }),
         chip(value, tint),
     })
@@ -156,7 +156,7 @@ local function metricCard(m)
     local detail = noctalia.string.trim(tostring(m.detail or ""))
     if detail ~= "" then
         bottom[#bottom + 1] = ui.spacer({ flexGrow = 1 })
-        bottom[#bottom + 1] = ui.label({ text = detail, fontSize = 10, fontWeight = "medium", color = "secondary", maxLines = 1 })
+        bottom[#bottom + 1] = ui.label({ text = detail, fontSize = 10, fontWeight = "medium", color = "secondary", maxLines = 1, maxWidth = 170 })
     end
     if #bottom > 0 then
         children[#children + 1] = ui.row({ gap = 4, align = "center" }, bottom)
@@ -389,13 +389,14 @@ end
 -- Sidebar: one vertical item per provider. Active gets the primary tint; a
 -- failed provider keeps its red dot.
 local function sidebarItem(entry, active)
+    local labelWidth = entry.status == "error" and 92 or 100
     local children = {
         providerMark(baseProvider(entry.id), 14, active and "primary" or "on_surface_variant"),
         ui.label({
             text = tabName(entry), fontSize = 12,
             fontWeight = active and "semibold" or "medium",
             color = active and "primary" or "on_surface",
-            maxLines = 1, flexGrow = 1,
+            maxLines = 1, maxWidth = labelWidth, flexGrow = 1,
         }),
     }
     if entry.status == "error" then
@@ -403,8 +404,11 @@ local function sidebarItem(entry, active)
     end
     return ui.row({
         key = "nav:" .. tostring(entry.id),
-        gap = 7, align = "center", paddingH = 9, paddingV = 6, radius = 7,
-        fill = active and "primary/0.14" or nil,
+        gap = 7, align = "center", paddingH = 12, paddingV = 6,
+        minHeight = 32, radius = 8,
+        fill = active and "primary/0.14" or "surface_variant/0.22",
+        border = active and "primary/0.45" or "outline/0.08",
+        borderWidth = 1,
         tooltip = tabName(entry) .. (entry.plan ~= nil and (" · " .. normalizePlan(entry.plan)) or ""),
         onClick = function()
             selected = entry.id
