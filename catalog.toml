@@ -1,4 +1,4 @@
-# Noctalia plugins catalog.
+# diasbaskara/noctalia-plugins — Noctalia plugin source.
 # Index of every plugin this source ships. The per-plugin plugin.toml stays
 # authoritative; the host re-reads it on enable. Keep one [[plugin]] row per
 # plugin subdirectory.

@@ -10,7 +10,7 @@ Plugin id: `diasbaskara/ai-usage`
 ## Install as a Noctalia source
 
 ```sh
-noctalia msg plugins source add ai-usage git https://github.com/diasbaskara/noctalia-ai-usage
+noctalia msg plugins source add diasbaskara git https://github.com/diasbaskara/noctalia-plugins
 noctalia msg plugins enable diasbaskara/ai-usage
 ```
 
