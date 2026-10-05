@@ -207,28 +207,33 @@ end
 local function tabNode(entry, active)
     local id = entry.id
     local failedTab = entry.status == "error"
+    local children = {
+        providerMark(baseProvider(entry.id), 15, active and "primary" or "on_surface"),
+        ui.label({
+            text = tabName(entry), fontSize = 12,
+            fontWeight = active and "bold" or "medium",
+            color = active and "primary" or "on_surface",
+            maxLines = 1,
+        }),
+    }
+    if failedTab then
+        children[#children + 1] = ui.glyph({ name = "alert-circle", size = 12, color = "error" })
+    end
     return ui.row({
         -- Stable identity: without it the host can leave a previous render's
         -- closures on the rows, so the highlight sticks to the old tab.
         key = "tab:" .. tostring(id),
-        gap = 6, align = "center", paddingH = 10, paddingV = 6, radius = 7,
-        fill = active and "primary/0.15" or nil,
-        border = active and "primary/0.40" or nil,
-        borderWidth = active and 1 or nil,
+        gap = 6, align = "center", justify = "center",
+        paddingH = 10, paddingV = 6, minHeight = 32, radius = 8, flexGrow = 1,
+        fill = active and "primary/0.14" or "surface_variant/0.22",
+        border = active and "primary/0.45" or "outline/0.08",
+        borderWidth = 1,
         onClick = function()
             selected = id
             noctalia.state.set("selected", id)
             render()
         end,
-    }, {
-        providerMark(baseProvider(entry.id), 15, "on_surface_variant"),
-        ui.label({
-            text = tabName(entry), fontSize = 12,
-            fontWeight = active and "semibold" or "medium",
-            color = failedTab and "error" or (active and "on_surface" or "on_surface_variant"),
-            maxLines = 1,
-        }),
-    })
+    }, children)
 end
 
 local function tabRow(list)
