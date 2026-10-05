@@ -20,6 +20,22 @@ local GLYPHS = {
     kimi = "moon",
 }
 
+local ICONS = {
+    anthropic = true, openai = true, copilot = true, cursor = true,
+    grok = true, supergrok = true, ["opencode-go"] = true,
+    openrouter = true, deepseek = true, kimi = true,
+}
+
+local function providerMark(wanted, size, color)
+    if ICONS[wanted] then
+        return ui.image({
+            path = "icons/" .. wanted .. (noctalia.isDarkMode() and ".svg" or "-light.svg"),
+            width = size, height = size, fit = "contain",
+        })
+    end
+    return ui.glyph({ name = GLYPHS[wanted] or "brain", size = size, color = color })
+end
+
 local report = nil
 local selected = nil
 
@@ -167,7 +183,12 @@ function render()
         children[#children + 1] = tabRow(list)
         if current == nil then
             children[#children + 1] = ui.label({ text = "No provider selected.", color = "on_surface_variant" })
-        elseif current.status == "error" then
+        else
+            children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
+                providerMark(baseProvider(current.id), 18, "primary"),
+                ui.label({ text = tabName(current), fontSize = 14, fontWeight = "semibold", color = "on_surface", maxLines = 1 }),
+            })
+            if current.status == "error" then
             children[#children + 1] = ui.label({
                 text = tostring(current.error or "error"), fontSize = 12,
                 fontWeight = "medium", color = "error",

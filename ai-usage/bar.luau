@@ -28,6 +28,25 @@ local GLYPHS = {
     kimi = "moon",
 }
 
+-- Providers with real brand SVGs in icons/ (white for dark themes, dark for
+-- light ones, like the tailscale logo pair). Anything else falls back to a
+-- Tabler glyph.
+local ICONS = {
+    anthropic = true, openai = true, copilot = true, cursor = true,
+    grok = true, supergrok = true, ["opencode-go"] = true,
+    openrouter = true, deepseek = true, kimi = true,
+}
+
+local function providerMark(wanted, size, color)
+    if ICONS[wanted] then
+        return ui.image({
+            path = "icons/" .. wanted .. (noctalia.isDarkMode() and ".svg" or "-light.svg"),
+            width = size, height = size, fit = "contain",
+        })
+    end
+    return ui.glyph({ name = GLYPHS[wanted] or "brain", size = size, color = color })
+end
+
 local report = nil
 local failed = false
 local failDetail = ""
@@ -98,9 +117,7 @@ local function chip(entry, wanted, isVert)
     end
 
     if showGlyph then
-        nodes[#nodes + 1] = ui.glyph({
-            name = GLYPHS[wanted] or "brain", size = 14, color = color,
-        })
+        nodes[#nodes + 1] = providerMark(wanted, 14, color)
     end
     nodes[#nodes + 1] = ui.label({ text = text, fontSize = 11, fontWeight = "semibold", color = color, maxLines = 1 })
 
