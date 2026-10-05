@@ -39,7 +39,7 @@ local ICONS = {
     grokbot = true,
 }
 
-local ICON_EXT = { grokbot = "png" }
+local ICON_EXT = { grokbot = "png", grok = "png" }
 
 local function providerMark(wanted, size, color)
     if ICONS[wanted] then
