@@ -179,6 +179,52 @@ local function openDashboard(url)
     end
 end
 
+-- Runs a CLI login in a terminal, watches its output for the approval link
+-- and opens that link in the browser automatically. No copy-paste.
+local function autoBrowserLogin(cmd, stayTitle)
+    local dir = nil
+    if type(noctalia.pluginDataDir) == "function" then
+        local d = noctalia.pluginDataDir()
+        if type(d) == "string" and d ~= "" then dir = d end
+    end
+    local out = (dir or "/tmp") .. "/ai-usage-login.out"
+    local path = (dir or "/tmp") .. "/ai-usage-login.sh"
+    local body = table.concat({
+        "#!/bin/sh",
+        "OUT='" .. out .. "'",
+        ": > \"$OUT\"",
+        cmd .. ' >"$OUT" 2>&1 &',
+        "PID=$!",
+        'URL=""',
+        "for i in $(seq 1 60); do",
+        "  URL=$(grep -o 'https://[^ \"]*' \"$OUT\" | head -n 1)",
+        '  if [ -n "$URL" ]; then break; fi',
+        "  kill -0 $PID 2>/dev/null || break",
+        "  sleep 0.5",
+        "done",
+        'if [ -n "$URL" ]; then',
+        "  echo 'Opening browser for approval...'",
+        '  xdg-open "$URL"',
+        "else",
+        "  echo 'No approval link appeared:'",
+        '  cat "$OUT"',
+        "fi",
+        "wait $PID",
+        "echo",
+        "printf 'Press Enter to close... '",
+        "read -r _",
+        "",
+    }, "\n")
+    if type(noctalia.writeFile) == "function" then
+        noctalia.writeFile(path, body)
+    end
+    if type(noctalia.runInTerminal) == "function" then
+        noctalia.runInTerminal("sh '" .. path .. "'")
+    else
+        copyLoginCommand(cmd)
+    end
+end
+
 local function terminalLogin(cmd)
     -- A script file, not a quoted one-liner: argument splitting on the way to
     -- the terminal used to swallow the command and leave an empty window.
@@ -257,7 +303,7 @@ local function errorActions(entry)
         -- trying (and failing) to pop a browser from the shell's environment.
         actions[#actions + 1] = ui.button({
             text = "Log in with Cursor", variant = "primary", controlSize = "sm",
-            onClick = function() terminalLogin("NO_OPEN_BROWSER=1 cursor-agent login") end,
+            onClick = function() autoBrowserLogin("NO_OPEN_BROWSER=1 cursor-agent login") end,
         })
         actions[#actions + 1] = ui.button({
             text = "Copy command", variant = "ghost", controlSize = "sm",
