@@ -154,27 +154,70 @@ local function metricCard(m)
     }, children)
 end
 
+local function chip(text, color)
+    return ui.row({ paddingH = 6, paddingV = 2, radius = 5, align = "center", justify = "center", fill = color .. "/0.10" }, {
+        ui.label({ text = text, fontSize = 11, fontWeight = "semibold", color = color, maxLines = 1 }),
+    })
+end
+
+local function parseEpoch(resetAt)
+    if type(resetAt) ~= "string" then return nil end
+    local y, mo, d, h, mi, s = resetAt:match("^(%d+)%-(%d+)%-(%d+)T(%d+):(%d+):(%d+)")
+    if y == nil then return nil end
+    local asLocal = os.time({
+        year = tonumber(y), month = tonumber(mo), day = tonumber(d),
+        hour = tonumber(h), min = tonumber(mi), sec = tonumber(s),
+    })
+    local utc = os.date("!*t", asLocal)
+    utc.isdst = nil
+    return asLocal + (asLocal - os.time(utc))
+end
+
+-- Which window to spend from first: the usable window renewing soonest
+-- (spend it before it resets), otherwise the roomiest one.
+local function usageTip(entry)
+    local metrics = type(entry.metrics) == "table" and entry.metrics or {}
+    local best, bestAt, roomiest = nil, nil, nil
+    for _, m in ipairs(metrics) do
+        if type(m) == "table" then
+            local pct = tonumber(m.percent) or 0
+            if pct < 100 then
+                local at = parseEpoch(m.reset_at)
+                if best == nil or (at ~= nil and (bestAt == nil or at < bestAt)) then
+                    best, bestAt = m, at
+                end
+                if roomiest == nil or pct < (tonumber(roomiest.percent) or 0) then
+                    roomiest = m
+                end
+            end
+        end
+    end
+    if best == nil then
+        if #metrics > 0 then return "All windows exhausted - usage resumes at the next reset." end
+        return ""
+    end
+    local label = tostring(best.label or "quota")
+    if bestAt ~= nil then
+        return "Use " .. label .. " first - it resets " .. countdown(best.reset_at) .. "."
+    end
+    if roomiest ~= nil and roomiest ~= best then
+        label = tostring(roomiest.label or label)
+    end
+    return "Use " .. label .. " first - it has the most headroom."
+end
+
 local function tabNode(entry, active)
     local id = entry.id
-    local failedTab = entry.status == "error"
-    return ui.row({
-        gap = 6, align = "center", paddingH = 10, paddingV = 6, radius = 7,
-        fill = active and "primary/0.15" or nil,
-        border = active and "primary/0.40" or nil,
-        borderWidth = active and 1 or nil,
+    return ui.button({
+        text = tabName(entry),
+        variant = active and "primary" or "ghost",
+        controlSize = "sm",
+        selected = active,
         onClick = function()
             selected = id
             noctalia.state.set("selected", id)
             render()
         end,
-    }, {
-        providerMark(baseProvider(entry.id), 15, "on_surface_variant"),
-        ui.label({
-            text = tabName(entry), fontSize = 12,
-            fontWeight = active and "semibold" or "medium",
-            color = failedTab and "error" or (active and "on_surface" or "on_surface_variant"),
-            maxLines = 1,
-        }),
     })
 end
 
@@ -369,10 +412,25 @@ function render()
         if current == nil then
             children[#children + 1] = ui.label({ text = "No provider selected.", color = "on_surface_variant" })
         else
-            children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
+            local headRow = {
                 providerMark(baseProvider(current.id), 18, "primary"),
                 ui.label({ text = tabName(current), fontSize = 14, fontWeight = "semibold", color = "on_surface", maxLines = 1 }),
-            })
+            }
+            local plan = noctalia.string.trim(tostring(current.plan or ""))
+            if plan ~= "" then
+                headRow[#headRow + 1] = ui.spacer({ flexGrow = 1 })
+                headRow[#headRow + 1] = chip(plan, "primary")
+            end
+            children[#children + 1] = ui.row({ gap = 8, align = "center" }, headRow)
+            if current.status ~= "error" then
+                local tip = usageTip(current)
+                if tip ~= "" then
+                    children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
+                        ui.glyph({ name = "bulb", size = 12, color = "secondary" }),
+                        ui.label({ text = tip, fontSize = 11, color = "secondary", maxLines = 2 }),
+                    })
+                end
+            end
             if current.status == "error" then
             local errTitle, errBody = friendlyError(current)
             children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
