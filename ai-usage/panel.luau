@@ -153,13 +153,22 @@ local function metricCard(m)
         bottom[#bottom + 1] = ui.glyph({ name = "clock", size = 10, color = "on_surface_variant" })
         bottom[#bottom + 1] = ui.label({ text = "resets " .. left, fontSize = 11, color = "on_surface_variant", maxLines = 1 })
     end
-    local detail = noctalia.string.trim(tostring(m.detail or ""))
-    if detail ~= "" then
-        bottom[#bottom + 1] = ui.spacer({ flexGrow = 1 })
-        bottom[#bottom + 1] = ui.label({ text = detail, fontSize = 10, fontWeight = "medium", color = "secondary", maxLines = 1, maxWidth = 170 })
-    end
     if #bottom > 0 then
         children[#children + 1] = ui.row({ gap = 4, align = "center" }, bottom)
+    end
+    -- The CLI detail repeats the reset we just drew; drop that first segment
+    -- and keep the rest on its own full-width line so nothing truncates.
+    local detail = tostring(m.detail or "")
+    local head, rest = detail:match("^([^·]*)·(.*)$")
+    if head ~= nil and head:lower():find("^%s*resets?%s+in") then
+        detail = rest
+    end
+    detail = noctalia.string.trim(detail)
+    if detail ~= "" then
+        children[#children + 1] = ui.label({
+            text = detail, fontSize = 10, fontWeight = "medium",
+            color = "secondary", maxLines = 2,
+        })
     end
 
     return ui.column({
@@ -460,14 +469,6 @@ function render()
             text = "Waiting for ai-usagebar…", fontSize = 13, color = "on_surface_variant",
         })
     else
-        local tip = globalTip(list)
-        if tip ~= "" then
-            children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
-                ui.glyph({ name = "bulb", size = 12, color = "secondary" }),
-                ui.label({ text = tip, fontSize = 11, color = "secondary", maxLines = 2 }),
-            })
-        end
-
         local content = {}
         if current == nil then
             content[#content + 1] = ui.label({ text = "No provider selected.", color = "on_surface_variant" })
@@ -495,6 +496,17 @@ function render()
             sidebar(list),
             ui.column({ gap = 8, align = "stretch", flexGrow = 1 }, content),
         })
+
+        local tip = globalTip(list)
+        if tip ~= "" then
+            children[#children + 1] = ui.row({
+                gap = 6, align = "center", paddingH = 10, paddingV = 8, radius = 9,
+                fill = "surface_variant/0.34", border = "outline/0.08", borderWidth = 1,
+            }, {
+                ui.glyph({ name = "bulb", size = 12, color = "secondary" }),
+                ui.label({ text = tip, fontSize = 11, color = "secondary", maxLines = 2, flexGrow = 1 }),
+            })
+        end
     end
 
     panel.render(ui.column({ gap = 8, paddingH = 10, paddingV = 8, flexGrow = 1, align = "stretch" }, children))
