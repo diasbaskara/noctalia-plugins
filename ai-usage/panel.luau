@@ -305,11 +305,6 @@ local function errorActions(entry)
             text = "Log in with Cursor", variant = "primary", controlSize = "sm",
             onClick = function() autoBrowserLogin("NO_OPEN_BROWSER=1 cursor-agent login") end,
         })
-        actions[#actions + 1] = ui.button({
-            text = "Copy command", variant = "ghost", controlSize = "sm",
-            tooltip = "Copy the login command to run it in your own terminal",
-            onClick = function() copyLoginCommand("NO_OPEN_BROWSER=1 cursor-agent login") end,
-        })
     elseif base == "supergrok" then
         actions[#actions + 1] = ui.button({
             text = "Log in with Grok", variant = "primary", controlSize = "sm",
