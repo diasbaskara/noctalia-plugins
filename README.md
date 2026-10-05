@@ -12,7 +12,7 @@ noctalia msg plugins enable diasbaskara/ai-usage
 
 | Plugin | What |
 | --- | --- |
-| `diasbaskara/ai-usage` ([ai-usage/](ai-usage/)) | One bar capsule listing several [ai-usagebar](https://github.com/akitaonrails/ai-usagebar) providers side by side (Claude, Cursor, Grok, OpenCode Go) with a details panel. |
+| `diasbaskara/ai-usage` ([ai-usage/](ai-usage/)) | One bar capsule listing several [ai-usagebar](https://github.com/akitaonrails/ai-usagebar) providers side by side (Claude, Cursor, Grok, Grok Bot, OpenCode) with a details panel. |
 
 ## Adding another plugin
 
