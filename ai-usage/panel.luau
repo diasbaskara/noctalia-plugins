@@ -154,21 +154,35 @@ local function metricCard(m)
     }, children)
 end
 
+local function tabNode(entry, active)
+    local id = entry.id
+    local failedTab = entry.status == "error"
+    return ui.row({
+        gap = 6, align = "center", paddingH = 10, paddingV = 6, radius = 7,
+        fill = active and "primary/0.15" or nil,
+        border = active and "primary/0.40" or nil,
+        borderWidth = active and 1 or nil,
+        onClick = function()
+            selected = id
+            noctalia.state.set("selected", id)
+            render()
+        end,
+    }, {
+        providerMark(baseProvider(entry.id), 15, "on_surface_variant"),
+        ui.label({
+            text = tabName(entry), fontSize = 12,
+            fontWeight = active and "semibold" or "medium",
+            color = failedTab and "error" or (active and "on_surface" or "on_surface_variant"),
+            maxLines = 1,
+        }),
+    })
+end
+
 local function tabRow(list)
     local tabs = {}
+    local current = currentEntry()
     for _, entry in ipairs(list) do
-        local active = currentEntry() ~= nil and entry.id == currentEntry().id
-        local id = entry.id
-        tabs[#tabs + 1] = ui.button({
-            text = tabName(entry),
-            variant = active and "primary" or "ghost",
-            controlSize = "sm",
-            onClick = function()
-                selected = id
-                noctalia.state.set("selected", id)
-                render()
-            end,
-        })
+        tabs[#tabs + 1] = tabNode(entry, current ~= nil and entry.id == current.id)
     end
     return ui.row({ gap = 6, align = "center" }, tabs)
 end
