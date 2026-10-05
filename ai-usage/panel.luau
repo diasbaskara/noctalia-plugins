@@ -220,7 +220,7 @@ local function tabNode(entry, active)
     local children = {
         providerMark(baseProvider(entry.id), 14, active and "primary" or "on_surface"),
         ui.label({
-            text = tabName(entry), fontSize = 12,
+            text = title, fontSize = 12,
             fontWeight = active and "bold" or "medium",
             color = active and "primary" or "on_surface",
             maxLines = 1,
