@@ -203,6 +203,7 @@ function render()
             end
         end
     end
+end
 
     panel.render(ui.column({ gap = 8, paddingH = 10, paddingV = 8, flexGrow = 1, align = "stretch" }, children))
 end
