@@ -154,12 +154,6 @@ local function metricCard(m)
     }, children)
 end
 
-local function chip(text, color)
-    return ui.row({ paddingH = 6, paddingV = 2, radius = 5, align = "center", justify = "center", fill = color .. "/0.10" }, {
-        ui.label({ text = text, fontSize = 11, fontWeight = "semibold", color = color, maxLines = 1 }),
-    })
-end
-
 local function parseEpoch(resetAt)
     if type(resetAt) ~= "string" then return nil end
     local y, mo, d, h, mi, s = resetAt:match("^(%d+)%-(%d+)%-(%d+)T(%d+):(%d+):(%d+)")
@@ -223,8 +217,8 @@ local function tabNode(entry, active)
         -- Stable identity: without it the host can leave a previous render's
         -- closures on the rows, so the highlight sticks to the old tab.
         key = "tab:" .. tostring(id),
-        gap = 6, align = "center", justify = "center",
-        paddingH = 10, paddingV = 6, minHeight = 32, radius = 8, flexGrow = 1,
+        gap = 6, align = "center", paddingH = 12, paddingV = 6,
+        minHeight = 32, radius = 8,
         fill = active and "primary/0.14" or "surface_variant/0.22",
         border = active and "primary/0.45" or "outline/0.08",
         borderWidth = 1,
@@ -434,16 +428,6 @@ function render()
         if current == nil then
             children[#children + 1] = ui.label({ text = "No provider selected.", color = "on_surface_variant" })
         else
-            local headRow = {
-                providerMark(baseProvider(current.id), 18, "primary"),
-                ui.label({ text = tabName(current), fontSize = 14, fontWeight = "semibold", color = "on_surface", maxLines = 1 }),
-            }
-            local plan = noctalia.string.trim(tostring(current.plan or ""))
-            if plan ~= "" then
-                headRow[#headRow + 1] = ui.spacer({ flexGrow = 1 })
-                headRow[#headRow + 1] = chip(plan, "primary")
-            end
-            children[#children + 1] = ui.row({ gap = 8, align = "center" }, headRow)
             if current.status == "error" then
             local errTitle, errBody = friendlyError(current)
             children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
