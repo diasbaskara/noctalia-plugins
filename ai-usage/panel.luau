@@ -180,18 +180,43 @@ local function openDashboard(url)
 end
 
 local function terminalLogin(cmd)
-    -- Trailing read keeps the window open: without it the terminal flashes
-    -- shut when the command ends and the approval link is lost with it.
-    local wrapped = cmd .. '; echo; read -r -p "Done - press Enter to close. " _'
+    -- A script file, not a quoted one-liner: argument splitting on the way to
+    -- the terminal used to swallow the command and leave an empty window.
+    local dir = nil
+    if type(noctalia.pluginDataDir) == "function" then
+        local d = noctalia.pluginDataDir()
+        if type(d) == "string" and d ~= "" then dir = d end
+    end
+    local path = (dir or "/tmp") .. "/ai-usage-login.sh"
+    local body = table.concat({
+        "#!/bin/sh",
+        "echo 'AI Usage login'",
+        "echo '1. Copy the link printed below'",
+        "echo '2. Open it in your browser and approve'",
+        "echo '3. Wait here for success, then press Enter'",
+        "echo",
+        cmd,
+        "echo",
+        "printf 'Press Enter to close... '",
+        "read -r _",
+        "",
+    }, "\n")
+    if type(noctalia.writeFile) == "function" then
+        noctalia.writeFile(path, body)
+    end
     if type(noctalia.runInTerminal) == "function" then
-        noctalia.runInTerminal("sh -c '" .. wrapped:gsub("'", "'\\''") .. "'")
+        noctalia.runInTerminal("sh '" .. path .. "'")
     else
-        if type(noctalia.copyToClipboard) == "function" then
-            noctalia.copyToClipboard(cmd, "text/plain")
-        end
-        if type(noctalia.notify) == "function" then
-            noctalia.notify("Run this in a terminal", cmd)
-        end
+        copyLoginCommand(cmd)
+    end
+end
+
+local function copyLoginCommand(cmd)
+    if type(noctalia.copyToClipboard) == "function" then
+        noctalia.copyToClipboard(cmd, "text/plain")
+    end
+    if type(noctalia.notify) == "function" then
+        noctalia.notify("Login command copied", "Paste it in your own terminal.")
     end
 end
 
@@ -233,6 +258,11 @@ local function errorActions(entry)
         actions[#actions + 1] = ui.button({
             text = "Log in with Cursor", variant = "primary", controlSize = "sm",
             onClick = function() terminalLogin("NO_OPEN_BROWSER=1 cursor-agent login") end,
+        })
+        actions[#actions + 1] = ui.button({
+            text = "Copy command", variant = "ghost", controlSize = "sm",
+            tooltip = "Copy the login command to run it in your own terminal",
+            onClick = function() copyLoginCommand("NO_OPEN_BROWSER=1 cursor-agent login") end,
         })
     elseif base == "supergrok" then
         actions[#actions + 1] = ui.button({
