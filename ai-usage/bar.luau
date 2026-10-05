@@ -57,6 +57,16 @@ local function baseProvider(id)
     return (tostring(id or ""):match("^[^@]+") or "")
 end
 
+local DISPLAY_NAMES = {
+    ["opencode-go"] = "OpenCode",
+}
+
+local function displayName(entry)
+    local id = baseProvider(entry.id)
+    if DISPLAY_NAMES[id] ~= nil then return DISPLAY_NAMES[id] end
+    return tostring(entry.display_name or entry.id)
+end
+
 local function findEntry(wanted)
     if type(report) ~= "table" or type(report.entries) ~= "table" then return nil end
     for _, entry in ipairs(report.entries) do
@@ -147,13 +157,13 @@ local function tooltip()
         if entry == nil then
             rows[#rows + 1] = { key = wanted, value = "not in report" }
         elseif entry.status == "error" then
-            rows[#rows + 1] = { key = tostring(entry.display_name or entry.id), value = tostring(entry.error or "error") }
+            rows[#rows + 1] = { key = displayName(entry), value = tostring(entry.error or "error") }
         else
             local m = headline(entry)
             if m ~= nil then
                 local left = countdown(m.reset_at)
                 rows[#rows + 1] = {
-                    key = tostring(entry.display_name or entry.id),
+                    key = displayName(entry),
                     value = tostring(m.label or "") .. ": " .. tostring(m.value or "")
                         .. (left ~= "" and " (resets " .. left .. ")" or ""),
                 }

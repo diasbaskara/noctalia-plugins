@@ -60,7 +60,13 @@ local function baseProvider(id)
     return (tostring(id or ""):match("^[^@]+") or "")
 end
 
+local DISPLAY_NAMES = {
+    ["opencode-go"] = "OpenCode",
+}
+
 local function tabName(entry)
+    local id = baseProvider(entry.id)
+    if DISPLAY_NAMES[id] ~= nil then return DISPLAY_NAMES[id] end
     return tostring(entry.display_name or entry.short_name or entry.id or "?")
 end
 
@@ -204,7 +210,7 @@ local function tabNode(entry, active)
     local id = entry.id
     local failedTab = entry.status == "error"
     local children = {
-        providerMark(baseProvider(entry.id), 15, active and "primary" or "on_surface"),
+        providerMark(baseProvider(entry.id), 14, active and "primary" or "on_surface"),
         ui.label({
             text = tabName(entry), fontSize = 12,
             fontWeight = active and "bold" or "medium",
@@ -233,12 +239,23 @@ local function tabNode(entry, active)
 end
 
 local function tabRow(list)
-    local tabs = {}
+    -- Wrap into rows of three: the manifest width is fixed, so tabs flow
+    -- instead of overflowing it.
+    local rows = {}
+    local currentRow = {}
     local current = currentEntry()
     for _, entry in ipairs(list) do
-        tabs[#tabs + 1] = tabNode(entry, current ~= nil and entry.id == current.id)
+        currentRow[#currentRow + 1] = tabNode(entry, current ~= nil and entry.id == current.id)
+        if #currentRow >= 3 then
+            rows[#rows + 1] = ui.row({ gap = 6, align = "center" }, currentRow)
+            currentRow = {}
+        end
     end
-    return ui.row({ gap = 6, align = "center" }, tabs)
+    if #currentRow > 0 then
+        rows[#rows + 1] = ui.row({ gap = 6, align = "center" }, currentRow)
+    end
+    if #rows == 1 then return rows[1] end
+    return ui.column({ gap = 6 }, rows)
 end
 
 local function openDashboard(url)

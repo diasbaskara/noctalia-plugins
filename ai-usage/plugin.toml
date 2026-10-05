@@ -1,6 +1,6 @@
 id = "diasbaskara/ai-usage"
 name = "AI Usage Multi"
-version = "1.8.0"
+version = "1.9.0"
 plugin_api = 22
 author = "diasbaskara"
 license = "MIT"
@@ -62,7 +62,7 @@ default = true
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-width = 440
+width = 480
 height = 480
 placement = "attached"
 position = "auto"
