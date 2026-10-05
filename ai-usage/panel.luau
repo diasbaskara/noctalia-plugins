@@ -1,8 +1,10 @@
 --!nonstrict
--- Details panel: one block per provider in the report, with meters, reset
--- countdowns and fetch errors. `r` refreshes, arrows/escape behave as usual.
+-- Tabbed details panel: one tab per provider in the report, limit cards in
+-- the shared usage-card style (hairline outline, pill value chips, clock
+-- reset rows). `r` refreshes, arrows switch tabs, escape closes.
 
-local report = nil
+local WARNING = "#F5A623"
+local CARD = { gap = 5, padding = 7, radius = 9, fill = "surface_variant/0.34", border = "outline/0.08", borderWidth = 1 }
 
 local GLYPHS = {
     anthropic = "asterisk-simple",
@@ -18,15 +20,45 @@ local GLYPHS = {
     kimi = "moon",
 }
 
+local report = nil
+local selected = nil
+
 local function baseProvider(id)
     return (tostring(id or ""):match("^[^@]+") or "")
 end
 
-local function ratio(percent)
-    local value = (tonumber(percent) or 0) / 100
-    if value < 0 then return 0 end
-    if value > 1 then return 1 end
-    return value
+local function tabName(entry)
+    return tostring(entry.display_name or entry.short_name or entry.id or "?")
+end
+
+local function listEntries()
+    if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
+    local out = {}
+    for _, entry in ipairs(report.entries) do
+        if type(entry) == "table" then out[#out + 1] = entry end
+    end
+    return out
+end
+
+local function currentEntry()
+    local list = listEntries()
+    if #list == 0 then return nil end
+    for _, entry in ipairs(list) do
+        if entry.id == selected then return entry end
+    end
+    return list[1]
+end
+
+local function limitColor(fraction)
+    if fraction >= 0.97 then return "error" end
+    if fraction >= 0.70 then return WARNING end
+    return "primary"
+end
+
+local function chip(text, color)
+    return ui.row({ paddingH = 6, paddingV = 2, radius = 5, align = "center", justify = "center", fill = color .. "/0.10" }, {
+        ui.label({ text = text, fontSize = 12, fontWeight = "bold", color = color, maxLines = 1 }),
+    })
 end
 
 local function countdown(resetAt)
@@ -39,8 +71,7 @@ local function countdown(resetAt)
     })
     local utc = os.date("!*t", asLocal)
     utc.isdst = nil
-    local at = asLocal + (asLocal - os.time(utc))
-    local left = at - os.time()
+    local left = (asLocal + (asLocal - os.time(utc))) - os.time()
     if left <= 0 then return "now" end
     local mins = math.floor(left / 60)
     local days = math.floor(mins / 1440)
@@ -51,81 +82,108 @@ local function countdown(resetAt)
     return string.format("%dm", rest)
 end
 
-local function metricBlock(m)
+local function metricCard(m)
     local percent = tonumber(m.percent) or 0
-    local fill = "primary"
-    if percent >= 100 then fill = "error" elseif percent >= 90 then fill = "secondary" end
+    local tint = limitColor(percent / 100)
     local value = tostring(m.value or "")
     if value == "" and m.percent ~= nil then value = string.format("%d%%", percent) end
 
-    local nodes = {
-        ui.row({ align = "center" }, {
-            ui.label({ text = tostring(m.label or ""), fontSize = 12, color = "on_surface_variant" }),
-        }),
-        ui.row({ gap = 8, align = "center" }, {
-            ui.label({ text = value, fontSize = 14, color = "on_surface" }),
-        }),
-    }
+    local children = {}
+    children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
+        ui.label({ text = tostring(m.label or ""), fontSize = 13, fontWeight = "semibold", color = "on_surface", maxLines = 1 }),
+        ui.spacer({ flexGrow = 1 }),
+        chip(value, tint),
+    })
+
     if m.percent ~= nil then
-        nodes[#nodes + 1] = ui.progress({
-            progress = ratio(percent), fill = fill,
-            track = "on_surface/0.10", radius = 2, height = 5,
+        children[#children + 1] = ui.progress({
+            progress = math.min(1, math.max(0, percent / 100)),
+            fill = tint, track = "on_surface/0.10", height = 5, radius = 2,
         })
     end
-    local sub = {}
+
+    local bottom = {}
     local left = countdown(m.reset_at)
-    if left ~= "" then sub[#sub + 1] = "resets " .. left end
-    local detail = noctalia.string.trim(tostring(m.detail or ""))
-    if detail ~= "" then sub[#sub + 1] = detail end
-    if #sub > 0 then
-        nodes[#nodes + 1] = ui.label({ text = table.concat(sub, " · "), fontSize = 11, color = "on_surface_variant" })
+    if left ~= "" then
+        bottom[#bottom + 1] = ui.glyph({ name = "clock", size = 10, color = "on_surface_variant" })
+        bottom[#bottom + 1] = ui.label({ text = "resets " .. left, fontSize = 11, color = "on_surface_variant", maxLines = 1 })
     end
-    return ui.column({ gap = 4 }, nodes)
+    local detail = noctalia.string.trim(tostring(m.detail or ""))
+    if detail ~= "" then
+        bottom[#bottom + 1] = ui.spacer({ flexGrow = 1 })
+        bottom[#bottom + 1] = ui.label({ text = detail, fontSize = 10, fontWeight = "medium", color = "secondary", maxLines = 1 })
+    end
+    if #bottom > 0 then
+        children[#children + 1] = ui.row({ gap = 4, align = "center" }, bottom)
+    end
+
+    return ui.column({
+        gap = CARD.gap, padding = CARD.padding, radius = CARD.radius,
+        fill = CARD.fill, border = CARD.border, borderWidth = CARD.borderWidth,
+    }, children)
 end
 
-local function entryBlock(entry)
-    local name = tostring(entry.display_name or entry.id or "")
-    local head = {
-        ui.glyph({ name = GLYPHS[baseProvider(entry.id)] or "brain", size = 16, color = "primary" }),
-        ui.label({ text = name, fontSize = 14, color = "on_surface" }),
-    }
-    local nodes = { ui.row({ gap = 8, align = "center" }, head) }
-
-    if entry.status == "error" then
-        nodes[#nodes + 1] = ui.label({
-            text = tostring(entry.error or "error"), fontSize = 12, color = "error",
+local function tabRow(list)
+    local tabs = {}
+    for _, entry in ipairs(list) do
+        local active = currentEntry() ~= nil and entry.id == currentEntry().id
+        local id = entry.id
+        tabs[#tabs + 1] = ui.button({
+            text = tabName(entry),
+            variant = active and "primary" or "ghost",
+            controlSize = "sm",
+            onClick = function()
+                selected = id
+                noctalia.state.set("selected", id)
+                render()
+            end,
         })
-    else
-        local metrics = type(entry.metrics) == "table" and entry.metrics or {}
-        if #metrics == 0 then
-            nodes[#nodes + 1] = ui.label({ text = "no readings", fontSize = 12, color = "on_surface_variant" })
-        end
-        for _, m in ipairs(metrics) do
-            if type(m) == "table" then nodes[#nodes + 1] = metricBlock(m) end
-        end
     end
-    return ui.column({ gap = 6 }, nodes)
+    return ui.row({ gap = 6, align = "center" }, tabs)
 end
 
 function render()
-    local blocks = {
-        ui.row({ gap = 8, align = "center" }, {
-            ui.glyph({ name = "brain", size = 18, color = "primary" }),
-            ui.label({ text = "AI Usage", fontSize = 16, color = "on_surface" }),
+    local list = listEntries()
+    local current = currentEntry()
+
+    local children = {}
+    children[#children + 1] = ui.row({ align = "center", gap = 8, paddingH = 4, paddingV = 2 }, {
+        ui.label({ text = "AI Usage", fontSize = 16, fontWeight = "bold", color = "on_surface", maxLines = 1 }),
+        ui.spacer({ flexGrow = 1 }),
+        ui.button({
+            glyph = "refresh", variant = "ghost", controlSize = "sm",
+            width = 24, height = 24, glyphSize = 13, tooltip = "Refresh now",
+            onClick = function()
+                noctalia.state.set("command", { action = "refresh", at = noctalia.nowMs() })
+            end,
         }),
-    }
+    })
 
-    local list = type(report) == "table" and type(report.entries) == "table" and report.entries or {}
     if #list == 0 then
-        blocks[#blocks + 1] = ui.label({ text = "Waiting for ai-usagebar…", fontSize = 13, color = "on_surface_variant" })
-    end
-    for _, entry in ipairs(list) do
-        if type(entry) == "table" then blocks[#blocks + 1] = entryBlock(entry) end
+        children[#children + 1] = ui.label({
+            text = "Waiting for ai-usagebar…", fontSize = 13, color = "on_surface_variant",
+        })
+    else
+        children[#children + 1] = tabRow(list)
+        if current == nil then
+            children[#children + 1] = ui.label({ text = "No provider selected.", color = "on_surface_variant" })
+        elseif current.status == "error" then
+            children[#children + 1] = ui.label({
+                text = tostring(current.error or "error"), fontSize = 12,
+                fontWeight = "medium", color = "error",
+            })
+        else
+            local metrics = type(current.metrics) == "table" and current.metrics or {}
+            if #metrics == 0 then
+                children[#children + 1] = ui.label({ text = "No readings.", color = "on_surface_variant" })
+            end
+            for _, m in ipairs(metrics) do
+                if type(m) == "table" then children[#children + 1] = metricCard(m) end
+            end
+        end
     end
 
-    blocks[#blocks + 1] = ui.label({ text = "press r to refresh", fontSize = 11, color = "on_surface_variant" })
-
-    panel.render(ui.column({ gap = 12, paddingH = 14, paddingV = 12, flexGrow = 1, align = "stretch" }, blocks))
+    panel.render(ui.column({ gap = 8, paddingH = 10, paddingV = 8, flexGrow = 1, align = "stretch" }, children))
 end
 
 noctalia.state.watch("report", function(value)
@@ -137,6 +195,8 @@ end)
 
 function onOpen(_context)
     report = noctalia.state.get("report")
+    local want = noctalia.state.get("selected")
+    if want ~= nil then selected = want end
     panel.setWantsSecondTicks(true)
     render()
 end
@@ -152,6 +212,20 @@ function onKey(chord, pressed)
         if type(panel.close) == "function" then panel.close() end
     elseif lower == "r" then
         noctalia.state.set("command", { action = "refresh", at = noctalia.nowMs() })
+    elseif lower == "left" or lower == "right" or lower == "up" or lower == "down" then
+        local list = listEntries()
+        if #list > 1 and currentEntry() ~= nil then
+            local idx = 1
+            for i, entry in ipairs(list) do
+                if entry.id == currentEntry().id then idx = i break end
+            end
+            local next = (lower == "left" or lower == "up")
+                and ((idx - 2 + #list) % #list + 1)
+                or ((idx % #list) + 1)
+            selected = list[next].id
+            noctalia.state.set("selected", selected)
+            render()
+        end
     end
 end
 

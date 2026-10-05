@@ -102,7 +102,7 @@ local function chip(entry, wanted, isVert)
             name = GLYPHS[wanted] or "brain", size = 14, color = color,
         })
     end
-    nodes[#nodes + 1] = ui.label({ text = text, fontSize = 11, color = color, maxLines = 1 })
+    nodes[#nodes + 1] = ui.label({ text = text, fontSize = 11, fontWeight = "semibold", color = color, maxLines = 1 })
 
     if showReset and entry ~= nil and entry.status ~= "error" then
         local m = headline(entry)
