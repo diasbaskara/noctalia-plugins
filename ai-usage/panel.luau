@@ -199,9 +199,11 @@ local function errorActions(entry)
     local message = tostring(entry.error or ""):lower()
     local actions = {}
     if base == "cursor" then
+        -- NO_OPEN_BROWSER prints the approval link in the terminal instead of
+        -- trying (and failing) to pop a browser from the shell's environment.
         actions[#actions + 1] = ui.button({
             text = "Log in with Cursor", variant = "primary", controlSize = "sm",
-            onClick = function() terminalLogin("cursor-agent login") end,
+            onClick = function() terminalLogin("NO_OPEN_BROWSER=1 cursor-agent login") end,
         })
     elseif base == "supergrok" then
         actions[#actions + 1] = ui.button({
