@@ -85,8 +85,54 @@ local function listEntries()
     return out
 end
 
+local function parseEpoch(resetAt)
+    if type(resetAt) ~= "string" then return nil end
+    local y, mo, d, h, mi, s = resetAt:match("^(%d+)%-(%d+)%-(%d+)T(%d+):(%d+):(%d+)")
+    if y == nil then return nil end
+    local asLocal = os.time({
+        year = tonumber(y), month = tonumber(mo), day = tonumber(d),
+        hour = tonumber(h), min = tonumber(mi), sec = tonumber(s),
+    })
+    local utc = os.date("!*t", asLocal)
+    utc.isdst = nil
+    return asLocal + (asLocal - os.time(utc))
+end
+
+-- Same order as the bar capsule: soonest reset first, providers without a
+-- reset (errors, no data) after them in report order.
+local function earliestReset(entry)
+    if entry.status == "error" then return nil end
+    local best
+    local metrics = type(entry.metrics) == "table" and entry.metrics or {}
+    for _, m in ipairs(metrics) do
+        local at = parseEpoch(m.reset_at)
+        if at ~= nil and (best == nil or at < best) then best = at end
+    end
+    return best
+end
+
+local function sortedEntries(list)
+    local out = {}
+    for index, entry in ipairs(list) do
+        out[index] = { entry = entry, index = index }
+    end
+    table.sort(out, function(a, b)
+        local ka, kb = earliestReset(a.entry), earliestReset(b.entry)
+        if ka ~= nil and kb ~= nil then
+            if ka ~= kb then return ka < kb end
+            return a.index < b.index
+        end
+        if ka ~= nil then return true end
+        if kb ~= nil then return false end
+        return a.index < b.index
+    end)
+    local sorted = {}
+    for i, item in ipairs(out) do sorted[i] = item.entry end
+    return sorted
+end
+
 local function currentEntry()
-    local list = listEntries()
+    local list = sortedEntries(listEntries())
     if #list == 0 then return nil end
     for _, entry in ipairs(list) do
         if entry.id == selected then return entry end
@@ -175,19 +221,6 @@ local function metricCard(m)
         gap = CARD.gap, padding = CARD.padding, radius = CARD.radius,
         fill = CARD.fill, border = CARD.border, borderWidth = CARD.borderWidth,
     }, children)
-end
-
-local function parseEpoch(resetAt)
-    if type(resetAt) ~= "string" then return nil end
-    local y, mo, d, h, mi, s = resetAt:match("^(%d+)%-(%d+)%-(%d+)T(%d+):(%d+):(%d+)")
-    if y == nil then return nil end
-    local asLocal = os.time({
-        year = tonumber(y), month = tonumber(mo), day = tonumber(d),
-        hour = tonumber(h), min = tonumber(mi), sec = tonumber(s),
-    })
-    local utc = os.date("!*t", asLocal)
-    utc.isdst = nil
-    return asLocal + (asLocal - os.time(utc))
 end
 
 -- Across every provider: which window to spend from first. Soonest-renewing
@@ -441,7 +474,7 @@ end
 local function sidebar(list)
     local items = {}
     local current = currentEntry()
-    for _, entry in ipairs(list) do
+    for _, entry in ipairs(sortedEntries(list)) do
         items[#items + 1] = sidebarItem(entry, current ~= nil and entry.id == current.id)
     end
     return ui.column({ gap = 4, width = 172, align = "stretch" }, items)
