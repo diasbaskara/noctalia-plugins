@@ -3,28 +3,23 @@
 An iOS-style Face ID overlay for Noctalia. While
 [Howdy](https://github.com/boltgolt/howdy) runs a face scan, a **square attached
 panel** drops from the bar (the same placement the built-in control center uses)
-and plays a two-part animation, then fades away.
+and loops the looking-for-face animation, then closes when the scan ends.
 
-- **Looking for face** — the scanning glyph while Howdy runs.
-- **Success** — the morph to a checkmark when the face is recognized.
-- **Timeout** — the panel simply closes; there is no error state.
-
-It is an attached panel, not a floating/detached dialog and not a bar widget.
+There is no success or error state — the panel simply appears while scanning and
+closes afterwards.
 
 Plugin id: `diasbaskara/faceid`
 
 ## How it works
 
-Noctalia entries run in isolated VMs and share plain values through
-`noctalia.state`. Two entries cooperate:
+Noctalia entries run in isolated VMs. Two entries cooperate:
 
-- **`service.luau`** (headless) — the single owner of the scan phase. It runs a
-  tiny `pgrep` loop via `noctalia.runStream()` (bracket trick so the loop's own
-  command line never matches itself) and publishes `phase` / `phaseAt`. On the
-  rising edge it opens the panel; on the falling edge it resolves the result.
-- **`panel.luau`** — an attached, non-interactive panel. It subscribes to
-  `phase` and animates with `onFrameTick()`, so it runs at full frame rate. When
-  the result has faded it closes itself.
+- **`service.luau`** (headless) — watches for a running Howdy scan with a tiny
+  `pgrep` loop via `noctalia.runStream()` (bracket trick so the loop's own
+  command line never matches itself). On the rising edge it opens the panel; on
+  the falling edge it closes it.
+- **`panel.luau`** — an attached, non-interactive panel. It loops the animation
+  frames with `onFrameTick()` and closes itself when the phase returns to idle.
 
 The panel is declared `placement = "attached"` (hangs from the bar, like the
 control center) with `dismiss_on_outside_click = false` and
@@ -34,35 +29,13 @@ slot while a scan runs.
 
 ## Artwork
 
-Artwork is two Face ID animations from LottieFiles, recoloured **white** to match
-the shell theme. Noctalia's `ui.image` only renders the first frame of an animated
-image, so the frames are exported to PNGs and played by swapping the image path
-each tick:
-
-- `assets/look_00.png … look_59.png` — the looping "looking for face" scan
-  ([faceid](https://lottiefiles.com/free-animation/faceid-PC8pwZve58)), shown
-  while Howdy runs.
-- `assets/success_00.png … success_21.png` — the morph to the check
-  ([face-id](https://lottiefiles.com/free-animation/face-id-4Z76hfSHSI)).
-
-Both were exported from the LottieFiles preview renders, with the background keyed
-out and the shapes recoloured white. Only this artwork is drawn — no zoom, sweep,
-or shake.
-
-## How success vs timeout is decided
-
-The result is decided when the Howdy process exits:
-
-| context | behaviour |
-|---|---|
-| locked session | success when the lock is released; otherwise the panel just closes |
-| unlocked (`sudo`, `doas`, `su`) | always plays the success animation |
-
-A timeout just closes the panel — there is no error state. The locked case polls
-briefly for the unlock, because the session releases the lock a moment after the
-Howdy process exits. For `sudo`/`doas`/`su` there is no observable result, and a
-successful scan and a timeout take about the same time, so the panel always plays
-the success animation.
+The "looking for face" animation is from LottieFiles
+([faceid](https://lottiefiles.com/free-animation/faceid-PC8pwZve58)), recoloured
+**white** to match the shell theme. Noctalia's `ui.image` only renders the first
+frame of an animated image, so the frames are exported to PNGs
+(`assets/look_00.png … look_59.png`) and played by swapping the image path each
+frame tick. The source runs at 60 fps over ~3.9 s; every 4th frame is kept for a
+smooth, small loop.
 
 ## Install
 
@@ -74,7 +47,7 @@ noctalia msg plugins update diasbaskara
 noctalia msg plugins enable diasbaskara/faceid
 ```
 
-That is all — the dialog opens and closes itself around each scan. There is
+That is all — the panel opens and closes itself around each scan. There is
 nothing to place on the bar.
 
 ## Settings
@@ -82,42 +55,26 @@ nothing to place on the bar.
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `process_pattern` | string | `compare.py` | `pgrep -f` fragment that identifies a Howdy scan. |
-| `hold_ms` | int | `1400` | How long the result stays before the dialog fades. |
 
 ## Lock screen
 
-The overlay is a normal layer-shell surface, so it **cannot render over the lock
+The panel is a normal layer-shell surface, so it **cannot render over the lock
 screen**: Noctalia locks via the compositor's secure `ext-session-lock`, and no
 other client — plugin panel, desktop widget, or external overlay — may draw above
-it. The HUD therefore shows for **unlocked** face auth (`sudo`, `doas`, manual
+it. The overlay therefore shows for **unlocked** face auth (`sudo`, `doas`, manual
 triggers), not during lock-screen unlock.
 
 ## Driving it from outside (optional)
 
-The service accepts IPC events, useful for a custom trigger or an exact result
-where the lock heuristic is not enough. Run in the user's session (not as root):
-
 ```sh
-noctalia msg plugin diasbaskara/faceid:watch all scan
-noctalia msg plugin diasbaskara/faceid:watch all success
-noctalia msg plugin diasbaskara/faceid:watch all idle     # close
-noctalia msg plugin diasbaskara/faceid:watch all fail     # alias for close
+noctalia msg plugin diasbaskara/faceid:watch all scan    # open
+noctalia msg plugin diasbaskara/faceid:watch all close   # close
 ```
-
-A `pam_exec` hook placed *after* Howdy in the PAM stack runs only when the face
-check fails — a clean way to report failures for `sudo`/`doas`:
-
-```
-auth optional pam_exec.so quiet /usr/local/bin/faceid-hook fail
-```
-
-The helper must switch to the target user (`runuser -u "$PAM_USER" -- …`) before
-calling `noctalia msg`, because the IPC socket is owned by that user's session.
 
 ## Layout
 
-- `plugin.toml` — manifest, plugin settings, the service and the panel.
-- `service.luau` — Howdy process watcher, phase state owner, dialog opener.
-- `panel.luau` — the square animated overlay panel.
-- `assets/` — the two-part Face ID artwork.
-- `translations/en.json` — settings labels.
+- `plugin.toml` — manifest, the process setting, the service and the panel.
+- `service.luau` — Howdy process watcher and panel open/close.
+- `panel.luau` — the square looping overlay panel.
+- `assets/` — the looking-for-face animation frames.
+- `translations/en.json` — settings label.

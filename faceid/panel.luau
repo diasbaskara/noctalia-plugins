@@ -2,18 +2,13 @@
 -- Face ID dialog.
 --
 -- An attached, square panel (hangs from the bar edge, like the control center).
--- It is a pure subscriber of the phase published by service.luau (and can be
--- driven by IPC). The panel is opened by the service with:
---   noctalia msg panel-open diasbaskara/faceid:dialog
--- and closes itself once the result has faded.
+-- It shows the looping "looking for face" animation from LottieFiles (see
+-- README), recoloured white and played by swapping exported PNG frames each
+-- frame tick (Noctalia's ui.image only renders the first frame of an animated
+-- image).
 --
--- Artwork is two Face ID animations from LottieFiles (see README), recoloured
--- white to match the shell theme:
---   looking for face -> assets/look_NN.png    (loops while scanning)
---   success          -> assets/success_NN.png (morph to the check)
--- Noctalia's ui.image only shows the first frame of an animated image, so the
--- frames are exported to PNGs and played by swapping the image path each tick.
--- There is no error state: a non-success just closes the panel.
+-- There is no success or error state: the panel opens while Howdy scans and
+-- closes when the scan ends.
 
 local FADE_MS = 200
 
@@ -21,18 +16,11 @@ local FADE_MS = 200
 local LOOK_N = 60
 local LOOK_MS = 65
 
--- Success part: 22 exported frames (~1.1s), then the last frame is held.
-local SUCCESS_N = 22
-local SUCCESS_MS = 50
-
 -- Small, fits comfortably inside the 150x150 panel.
 local IMG = 88
 
 local open = false
 local animT = 0
-local visualPhase = "scan"
-local phaseAnimAt = 0
-local opening = false
 local closing = false
 local closingAt = 0
 
@@ -51,27 +39,12 @@ local function easeOutCubic(x)
 	return 1 - u * u * u
 end
 
-local function body()
-	if visualPhase == "success" then
-		local t = animT - phaseAnimAt
-		local idx = math.min(SUCCESS_N - 1, math.floor(t / SUCCESS_MS))
-		return ui.image({ path = string.format("assets/success_%02d.png", idx), width = IMG, height = IMG })
-	end
-	-- scanning: loop the looking-for-face animation.
-	local loop = LOOK_N * LOOK_MS
-	local idx = math.floor((animT % loop) / LOOK_MS)
-	return ui.image({ path = string.format("assets/look_%02d.png", idx), width = IMG, height = IMG })
-end
-
 local function render()
 	if not open then
 		return
 	end
 
 	local opacity = 1
-	if opening then
-		opacity = easeOutCubic(animT / FADE_MS)
-	end
 	if closing then
 		local f = clamp01((animT - closingAt) / FADE_MS)
 		if f >= 1 then
@@ -79,8 +52,13 @@ local function render()
 			panel.close()
 			return
 		end
-		opacity = opacity * (1 - f)
+		opacity = 1 - f
+	else
+		opacity = easeOutCubic(animT / FADE_MS)
 	end
+
+	local loop = LOOK_N * LOOK_MS
+	local idx = math.floor((animT % loop) / LOOK_MS)
 
 	panel.render(ui.column({
 		align = "center",
@@ -91,19 +69,15 @@ local function render()
 		border = "outline/0.15",
 		borderWidth = 1,
 		opacity = opacity,
-	}, { body() }))
+	}, {
+		ui.image({ path = string.format("assets/look_%02d.png", idx), width = IMG, height = IMG }),
+	}))
 end
 
 function onOpen(_context)
 	open = true
-	opening = true
 	closing = false
 	animT = 0
-	phaseAnimAt = 0
-	visualPhase = noctalia.state.get("phase") or "scan"
-	if visualPhase == "idle" then
-		visualPhase = "scan"
-	end
 	panel.setNeedsFrameTick(true)
 	render()
 end
@@ -125,11 +99,7 @@ noctalia.state.watch("phase", function(value)
 			closing = true
 			closingAt = animT
 		end
-		return
+	else
+		closing = false
 	end
-	visualPhase = nextPhase
-	phaseAnimAt = animT
-	opening = false
-	closing = false
-	render()
 end)

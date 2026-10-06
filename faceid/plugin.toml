@@ -1,12 +1,12 @@
 id           = "diasbaskara/faceid"
 name         = "Face ID"
-version      = "1.3.0"
+version      = "1.4.0"
 plugin_api   = 18
 author       = "diasbaskara"
 license      = "MIT"
 icon         = "face-id"
-description  = "iOS-style Face ID overlay while Howdy runs a face scan: an attached panel that drops from the bar, animates, morphs to a check on success or an X on failure, then fades."
-tags         = ["overlay", "indicator", "security", "howdy", "face"]
+description  = "iOS-style Face ID overlay: an attached panel that loops the looking-for-face animation while Howdy runs a face scan, then closes."
+tags         = ["overlay", "indicator", "security", "howdy", "lottie"]
 dependencies = ["howdy"]
 
 # The process fragment that identifies a running Howdy scan. The service
@@ -19,18 +19,8 @@ label_key       = "settings.process_pattern.label"
 description_key = "settings.process_pattern.description"
 default         = "compare.py"
 
-# How long the success/fail glyph stays before the dialog fades away.
-[[setting]]
-key             = "hold_ms"
-type            = "int"
-label_key       = "settings.hold_ms.label"
-description_key = "settings.hold_ms.description"
-default         = 1400
-min             = 400
-max             = 5000
-
-# Headless owner of the scan phase state. It opens the dialog and the panel is
-# a pure subscriber of that state.
+# Headless owner of the scan state. It opens the panel while Howdy runs and
+# closes it when the scan ends.
 [[service]]
 id    = "watch"
 entry = "service.luau"
