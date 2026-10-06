@@ -2,9 +2,9 @@
 
 An iOS-style Face ID overlay for Noctalia. While
 [Howdy](https://github.com/boltgolt/howdy) runs a face scan, a floating dialog
-animates at the top of the screen — a breathing face glyph with a sweeping scan
-bar — then morphs to a green check on success or a red, shaking X on failure and
-fades away.
+animates at the top of the screen with a gap under the bar — a breathing face
+glyph with a sweeping scan bar — then morphs to a green check on success or a
+red, shaking X on failure and fades away.
 
 It is a **floating overlay dialog, not a bar widget**.
 

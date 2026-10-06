@@ -8,13 +8,21 @@
 -- and closes itself once the result has faded.
 --
 -- Panels get onFrameTick(), so unlike a bar widget this animates at frame rate.
+-- Motion is deliberately eased (cubic/quint/back) and the card slides down from
+-- under the bar, so it reads as a soft iOS-style HUD rather than a square pop.
 
 local HOLD_MS = tonumber(noctalia.getConfig("hold_ms")) or 1400
-local FADE_IN_MS = 180
-local FADE_OUT_MS = 220
-local POP_MS = 280
-local SCAN_MS = 1500
-local SHAKE_MS = 420
+local OPEN_MS = 260
+local FADE_OUT_MS = 240
+local POP_MS = 340
+local LABEL_MS = 280
+local SCAN_MS = 1600
+local SHAKE_MS = 470
+
+-- Vertical gap between the bar and the card, and how far it drifts on exit.
+local BASE_GAP = 16
+local EXIT_DRIFT = 22
+local SIDE_INSET = 14
 
 local GREEN = "#34C759"
 local RED = "#FF3B30"
@@ -23,20 +31,47 @@ local open = false
 local animT = 0
 local visualPhase = "scan"
 local phaseAnimAt = 0
+local opening = false
 local closing = false
 local closingAt = 0
 
-local function ease(t, dur)
-	if dur <= 0 then
-		return 1
-	end
-	local v = t / dur
-	if v < 0 then
+local function clamp01(x)
+	if x < 0 then
 		return 0
-	elseif v > 1 then
+	elseif x > 1 then
 		return 1
 	end
-	return v
+	return x
+end
+
+local function easeOutCubic(x)
+	x = clamp01(x)
+	local u = 1 - x
+	return 1 - u * u * u
+end
+
+local function easeOutQuint(x)
+	x = clamp01(x)
+	local u = 1 - x
+	return 1 - u * u * u * u * u
+end
+
+local function easeInOutQuad(x)
+	x = clamp01(x)
+	if x < 0.5 then
+		return 2 * x * x
+	end
+	local u = -2 * x + 2
+	return 1 - (u * u) / 2
+end
+
+-- Slight overshoot, for the result glyph.
+local function easeOutBack(x)
+	x = clamp01(x)
+	local c1 = 1.70158
+	local c3 = c1 + 1
+	local u = x - 1
+	return 1 + c3 * u * u * u + c1 * u * u
 end
 
 local function phaseT()
@@ -50,49 +85,63 @@ local function render()
 
 	local t = phaseT()
 	local opacity = 1
+	local gap = BASE_GAP
+	local border = "outline/0.15"
 	local kids = {}
 
 	if visualPhase == "scan" then
-		opacity = ease(animT, FADE_IN_MS)
-		local cycle = animT % SCAN_MS
-		local p = cycle < SCAN_MS / 2 and (cycle / (SCAN_MS / 2)) or ((SCAN_MS - cycle) / (SCAN_MS / 2))
-		-- Breathing face glyph.
-		local size = 42 + 5 * math.sin(animT / 260)
-		kids[#kids + 1] = ui.glyph({ name = "face-id", size = size, color = "primary" })
+		-- Sweeping bar, eased at both ends so it does not snap at the turn.
+		local cycle = (animT % SCAN_MS) / SCAN_MS
+		local tri = cycle < 0.5 and (cycle * 2) or (2 - cycle * 2)
+		local p = easeInOutQuad(tri)
+		-- Very subtle breathing so the card feels alive.
+		local breathe = 0.985 + 0.015 * math.sin(animT / 420)
+		kids[#kids + 1] = ui.glyph({ name = "face-id", size = 42 + 3 * math.sin(animT / 300), color = "primary" })
 		kids[#kids + 1] = ui.progress({
 			progress = p,
-			width = 128,
-			height = 5,
-			radius = 3,
-			fill = "primary/0.9",
-			track = "on_surface/0.12",
+			width = 124,
+			height = 4,
+			radius = 2,
+			fill = "primary/0.85",
+			track = "on_surface/0.10",
 		})
-		kids[#kids + 1] = ui.label({ text = "Face ID", fontSize = 12, color = "on_surface_variant" })
+		local labelA = 0.6 + 0.4 * math.sin(animT / 420)
+		kids[#kids + 1] = ui.label({ text = "Face ID", fontSize = 12, color = "on_surface_variant", opacity = labelA })
+		opacity = breathe
 	elseif visualPhase == "success" then
-		-- Pop-in check.
-		local pop = math.sin(math.pi * math.min(1, t / POP_MS))
-		kids[#kids + 1] = ui.glyph({ name = "circle-check", size = 46 + 10 * pop, color = GREEN })
-		kids[#kids + 1] = ui.label({ text = "Recognized", fontSize = 12, fontWeight = "semibold", color = GREEN })
+		local pop = easeOutBack(math.min(1, t / POP_MS))
+		local labelA = easeOutCubic(math.max(0, (t - 90) / LABEL_MS))
+		border = "#34C75947"
+		kids[#kids + 1] = ui.glyph({ name = "circle-check", size = 40 + 14 * pop, color = GREEN })
+		kids[#kids + 1] = ui.label({ text = "Recognized", fontSize = 12, fontWeight = "semibold", color = GREEN, opacity = labelA })
 	elseif visualPhase == "fail" then
-		-- Pop-in X with a decaying horizontal shake.
-		local pop = math.sin(math.pi * math.min(1, t / POP_MS))
-		local shake = math.sin(t / 26) * 7 * (1 - ease(t, SHAKE_MS))
-		local glyph = ui.glyph({ name = "circle-x", size = 46 + 8 * pop, color = RED })
+		local pop = easeOutBack(math.min(1, t / POP_MS))
+		local shake = math.sin(t / 30) * 8 * (1 - easeOutQuint(math.min(1, t / SHAKE_MS)))
+		local labelA = easeOutCubic(math.max(0, (t - 120) / LABEL_MS))
+		border = "#FF3B3047"
+		local glyph = ui.glyph({ name = "circle-x", size = 40 + 12 * pop, color = RED })
 		kids[#kids + 1] = ui.row({ gap = 0, align = "center" }, {
 			ui.box({ width = math.max(0, shake) }),
 			glyph,
 			ui.box({ width = math.max(0, -shake) }),
 		})
-		kids[#kids + 1] = ui.label({ text = "Not recognized", fontSize = 12, fontWeight = "semibold", color = RED })
+		kids[#kids + 1] = ui.label({ text = "Not recognized", fontSize = 12, fontWeight = "semibold", color = RED, opacity = labelA })
 	else
 		-- "done": nothing was locked, so the face result is not observable.
-		opacity = 1 - ease(t, math.min(HOLD_MS, 700))
-		kids[#kids + 1] = ui.glyph({ name = "face-id", size = 40, color = "on_surface_variant" })
+		opacity = 1 - easeOutCubic(t / math.min(HOLD_MS, 700))
+		kids[#kids + 1] = ui.glyph({ name = "face-id", size = 38, color = "on_surface_variant" })
 	end
 
+	-- Entrance / exit: opacity plus a vertical slide.
+	if opening then
+		opacity = opacity * easeOutCubic(animT / OPEN_MS)
+		gap = BASE_GAP * easeOutCubic(animT / OPEN_MS)
+	end
 	if closing then
-		local f = ease(animT - closingAt, FADE_OUT_MS)
-		opacity = opacity * (1 - f)
+		local f = clamp01((animT - closingAt) / FADE_OUT_MS)
+		local e = easeInOutQuad(f)
+		opacity = opacity * (1 - e)
+		gap = BASE_GAP + EXIT_DRIFT * e
 		if f >= 1 then
 			open = false
 			panel.close()
@@ -100,21 +149,27 @@ local function render()
 		end
 	end
 
-	panel.render(ui.column({
+	local card = ui.column({
 		gap = 10,
 		align = "center",
 		justify = "center",
 		padding = 16,
 		fill = "surface/0.92",
 		radius = 22,
-		border = "outline/0.15",
+		border = border,
 		borderWidth = 1,
 		opacity = opacity,
-	}, kids))
+	}, kids)
+
+	panel.render(ui.column({ gap = 0, align = "center", paddingH = SIDE_INSET }, {
+		ui.box({ height = gap }),
+		card,
+	}))
 end
 
 function onOpen(_context)
 	open = true
+	opening = true
 	closing = false
 	animT = 0
 	phaseAnimAt = 0
@@ -147,6 +202,7 @@ noctalia.state.watch("phase", function(value)
 	end
 	visualPhase = nextPhase
 	phaseAnimAt = animT
+	opening = false
 	closing = false
 	render()
 end)
