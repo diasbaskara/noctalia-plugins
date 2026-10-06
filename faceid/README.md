@@ -34,19 +34,20 @@ slot while a scan runs.
 
 ## Artwork
 
-The glyphs come from the [Face ID](https://lottiefiles.com/free-animation/face-id-4Z76hfSHSI)
-animation on LottieFiles (blue `#006DF8`). Noctalia's `ui.image` only renders the
-first frame of an animated image, so the two parts are exported to PNG frames and
-played by swapping the image path each tick:
+Artwork is two Face ID animations from LottieFiles, recoloured **white** to match
+the shell theme. Noctalia's `ui.image` only renders the first frame of an animated
+image, so the frames are exported to PNGs and played by swapping the image path
+each tick:
 
-- `assets/look.png` — part 1, the looking-for-face glyph, shown while scanning.
-  The source holds this part still (frames 0–17 are identical), so no motion is
-  added; the panel keeps it on screen until the scan turns into success or fail.
-- `assets/success_00.png … success_21.png` — part 2, the morph to the check.
+- `assets/look_00.png … look_59.png` — the looping "looking for face" scan
+  ([faceid](https://lottiefiles.com/free-animation/faceid-PC8pwZve58)), shown
+  while Howdy runs.
+- `assets/success_00.png … success_21.png` — the morph to the check
+  ([face-id](https://lottiefiles.com/free-animation/face-id-4Z76hfSHSI)).
 
-Only the Lottie artwork is drawn — no zoom, sweep, or shake. To re-export, render
-the source to frames and key out the background, then crop the two ranges (motion
-starts at frame 18 into the success morph).
+Both were exported from the LottieFiles preview renders, with the background keyed
+out and the shapes recoloured white. Only this artwork is drawn — no zoom, sweep,
+or shake.
 
 ## How success vs timeout is decided
 

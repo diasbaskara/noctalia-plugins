@@ -7,22 +7,26 @@
 --   noctalia msg panel-open diasbaskara/faceid:dialog
 -- and closes itself once the result has faded.
 --
--- Visuals are the two-part "Face ID" Lottie artwork only (see README):
---   part 1 "looking for face" -> assets/look.png       (shown while scanning)
---   part 2 "success"          -> assets/success_NN.png (morph to the check)
+-- Artwork is two Face ID animations from LottieFiles (see README), recoloured
+-- white to match the shell theme:
+--   looking for face -> assets/look_NN.png    (loops while scanning)
+--   success          -> assets/success_NN.png (morph to the check)
 -- Noctalia's ui.image only shows the first frame of an animated image, so the
--- success morph is exported to PNG frames and played by swapping the image path
--- each frame tick. A timeout resolves to "idle", which just closes the panel --
--- there is no error state. The only transition is the panel's own fade in/out.
+-- frames are exported to PNGs and played by swapping the image path each tick.
+-- There is no error state: a non-success just closes the panel.
 
 local FADE_MS = 200
+
+-- Looking-for-face loop (source is 60 fps, ~3.9 s; sampled every 4th frame).
+local LOOK_N = 60
+local LOOK_MS = 65
 
 -- Success part: 22 exported frames (~1.1s), then the last frame is held.
 local SUCCESS_N = 22
 local SUCCESS_MS = 50
 
--- Fits comfortably inside the 180x180 panel.
-local IMG = 124
+-- Small, fits comfortably inside the 150x150 panel.
+local IMG = 88
 
 local open = false
 local animT = 0
@@ -47,17 +51,16 @@ local function easeOutCubic(x)
 	return 1 - u * u * u
 end
 
-local function phaseT()
-	return animT - phaseAnimAt
-end
-
 local function body()
 	if visualPhase == "success" then
-		local idx = math.min(SUCCESS_N - 1, math.floor(phaseT() / SUCCESS_MS))
+		local t = animT - phaseAnimAt
+		local idx = math.min(SUCCESS_N - 1, math.floor(t / SUCCESS_MS))
 		return ui.image({ path = string.format("assets/success_%02d.png", idx), width = IMG, height = IMG })
 	end
-	-- scanning: the looking-for-face glyph.
-	return ui.image({ path = "assets/look.png", width = IMG, height = IMG })
+	-- scanning: loop the looking-for-face animation.
+	local loop = LOOK_N * LOOK_MS
+	local idx = math.floor((animT % loop) / LOOK_MS)
+	return ui.image({ path = string.format("assets/look_%02d.png", idx), width = IMG, height = IMG })
 end
 
 local function render()
