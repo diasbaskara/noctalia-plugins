@@ -7,7 +7,7 @@ and plays a two-part animation, then fades away.
 
 - **Looking for face** — the scanning glyph while Howdy runs.
 - **Success** — the morph to a checkmark when the face is recognized.
-- **Failure** — a red, shaking X.
+- **Timeout** — the panel simply closes; there is no error state.
 
 It is an attached panel, not a floating/detached dialog and not a bar widget.
 
@@ -48,20 +48,20 @@ Only the Lottie artwork is drawn — no zoom, sweep, or shake. To re-export, ren
 the source to frames and key out the background, then crop the two ranges (motion
 starts at frame 18 into the success morph).
 
-## How success/fail is decided
+## How success vs timeout is decided
 
-The service resolves the outcome when the Howdy process exits:
+The result is decided when the Howdy process exits:
 
-| situation | result | shown |
+| context | success | timeout |
 |---|---|---|
-| session was locked, now unlocked | success | check morph |
-| session was locked, still locked | fail | red X |
-| nothing was locked (`sudo`, `doas`, `su`) | unknown | brief neutral fade |
+| locked session | the lock is released | still locked |
+| unlocked (`sudo`, `doas`, `su`) | the scan was shorter than Howdy's `timeout` | it ran the full window |
 
-The success check **polls for up to ~1.25 s**, because the session unlocks a
-moment after the Howdy process exits (PAM returns, then Noctalia releases the
-lock). There is no in-process lock API, so the service asks the shell once per
-scan edge (`noctalia msg status`, reading `locked`).
+A timeout just closes the panel — there is no error state. The locked case polls
+briefly for the unlock, because the session releases the lock a moment after the
+Howdy process exits. The unlocked case has no observable result, so it compares
+the scan duration against Howdy's `timeout` read from
+`/usr/local/etc/howdy/config.ini` (falling back to 3 s).
 
 ## Install
 
@@ -99,8 +99,8 @@ where the lock heuristic is not enough. Run in the user's session (not as root):
 ```sh
 noctalia msg plugin diasbaskara/faceid:watch all scan
 noctalia msg plugin diasbaskara/faceid:watch all success
-noctalia msg plugin diasbaskara/faceid:watch all fail
-noctalia msg plugin diasbaskara/faceid:watch all idle
+noctalia msg plugin diasbaskara/faceid:watch all idle     # close
+noctalia msg plugin diasbaskara/faceid:watch all fail     # alias for close
 ```
 
 A `pam_exec` hook placed *after* Howdy in the PAM stack runs only when the face

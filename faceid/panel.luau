@@ -7,15 +7,14 @@
 --   noctalia msg panel-open diasbaskara/faceid:dialog
 -- and closes itself once the result has faded.
 --
--- Visuals are the two-part "Face ID" Lottie artwork only (see README). No
--- synthetic motion is added:
+-- Visuals are the two-part "Face ID" Lottie artwork only (see README):
 --   part 1 "looking for face" -> assets/look.png       (shown while scanning)
 --   part 2 "success"          -> assets/success_NN.png (morph to the check)
 -- Noctalia's ui.image only shows the first frame of an animated image, so the
 -- success morph is exported to PNG frames and played by swapping the image path
--- each frame tick. The only transition is the panel's own fade in/out.
+-- each frame tick. A timeout resolves to "idle", which just closes the panel --
+-- there is no error state. The only transition is the panel's own fade in/out.
 
-local HOLD_MS = tonumber(noctalia.getConfig("hold_ms")) or 1400
 local FADE_MS = 200
 
 -- Success part: 22 exported frames (~1.1s), then the last frame is held.
@@ -24,7 +23,6 @@ local SUCCESS_MS = 50
 
 -- Fits comfortably inside the 180x180 panel.
 local IMG = 124
-local RED = "#FF3B30"
 
 local open = false
 local animT = 0
@@ -54,14 +52,11 @@ local function phaseT()
 end
 
 local function body()
-	-- The artwork for the current phase (no added motion).
 	if visualPhase == "success" then
 		local idx = math.min(SUCCESS_N - 1, math.floor(phaseT() / SUCCESS_MS))
 		return ui.image({ path = string.format("assets/success_%02d.png", idx), width = IMG, height = IMG })
-	elseif visualPhase == "fail" then
-		return ui.glyph({ name = "circle-x", size = 92, color = RED })
 	end
-	-- scan and the neutral "done" state both show the looking-for-face glyph.
+	-- scanning: the looking-for-face glyph.
 	return ui.image({ path = "assets/look.png", width = IMG, height = IMG })
 end
 
