@@ -16,8 +16,8 @@ local FADE_MS = 200
 local LOOK_N = 60
 local LOOK_MS = 65
 
--- Small, fits comfortably inside the 150x150 panel.
-local IMG = 88
+-- Small, fits comfortably inside the 112x112 panel.
+local IMG = 68
 
 local open = false
 local animT = 0
@@ -63,7 +63,7 @@ local function render()
 	panel.render(ui.column({
 		align = "center",
 		justify = "center",
-		padding = 12,
+		padding = 10,
 		fill = "surface/0.92",
 		radius = 22,
 		border = "outline/0.15",

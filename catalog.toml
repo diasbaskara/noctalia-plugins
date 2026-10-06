@@ -19,8 +19,8 @@ tags = ["bar", "panel", "ai", "indicator", "utility"]
 [[plugin]]
 id = "diasbaskara/faceid"
 name = "Face ID"
-version = "1.4.0"
-updated_at = 1791276182
+version = "1.4.1"
+updated_at = 1791276293
 added_at = 1791265665
 author = "diasbaskara"
 license = "MIT"

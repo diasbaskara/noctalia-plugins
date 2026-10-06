@@ -1,6 +1,6 @@
 id           = "diasbaskara/faceid"
 name         = "Face ID"
-version      = "1.4.0"
+version      = "1.4.1"
 plugin_api   = 18
 author       = "diasbaskara"
 license      = "MIT"
@@ -30,8 +30,8 @@ entry = "service.luau"
 [[panel]]
 id    = "dialog"
 entry = "panel.luau"
-width = 150
-height = 150
+width = 112
+height = 112
 placement = "attached"
 dismiss_on_outside_click = false
 keyboard_focus = "none"
