@@ -1,12 +1,12 @@
 # Face ID (Noctalia plugin)
 
 An iOS-style Face ID overlay for Noctalia. While
-[Howdy](https://github.com/boltgolt/howdy) runs a face scan, a floating dialog
-animates at the top of the screen with a gap under the bar — a breathing face
-glyph with a sweeping scan bar — then morphs to a green check on success or a
-red, shaking X on failure and fades away.
+[Howdy](https://github.com/boltgolt/howdy) runs a face scan, an **attached panel**
+drops from the bar (the same placement the built-in control center uses) — a
+breathing face glyph with a sweeping scan bar — then morphs to a green check on
+success or a red, shaking X on failure and fades away.
 
-It is a **floating overlay dialog, not a bar widget**.
+It is an attached panel, not a floating/detached dialog and not a bar widget.
 
 Plugin id: `diasbaskara/faceid`
 
@@ -19,14 +19,15 @@ Noctalia entries run in isolated VMs and share plain values through
   tiny `pgrep` loop via `noctalia.runStream()` (bracket trick so the loop's own
   command line never matches itself) and publishes `phase` / `phaseAt`. On the
   rising edge it opens the dialog; on the falling edge it resolves the result.
-- **`panel.luau`** — a floating, non-interactive panel. It subscribes to `phase`
+- **`panel.luau`** — an attached, non-interactive panel. It subscribes to `phase`
   and animates with `onFrameTick()`, so it runs at full frame rate. When the
   result has faded it closes itself.
 
-The panel is declared non-interactive: `persistent = true`,
-`dismiss_on_outside_click = false`, `keyboard_focus = "none"`, `layer = "overlay"`.
-It never steals focus and is not dismissed by a stray click, and the overlay
-layer lets it sit above fullscreen windows.
+The panel is declared `placement = "attached"` (hangs from the bar, like the
+control center) with `dismiss_on_outside_click = false` and
+`keyboard_focus = "none"`, so it never steals focus and is not dismissed by a
+stray click. Attached panels cannot be persistent, so it uses the normal panel
+slot while a scan runs.
 
 ## How success/fail is decided
 

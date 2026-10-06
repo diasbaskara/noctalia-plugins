@@ -1,11 +1,11 @@
 id           = "diasbaskara/faceid"
 name         = "Face ID"
-version      = "1.0.2"
-plugin_api   = 30
+version      = "1.0.3"
+plugin_api   = 18
 author       = "diasbaskara"
 license      = "MIT"
 icon         = "face-id"
-description  = "iOS-style Face ID overlay while Howdy runs a face scan: a floating dialog that animates, morphs to a check on success or an X on failure, then fades."
+description  = "iOS-style Face ID overlay while Howdy runs a face scan: an attached panel that drops from the bar, animates, morphs to a check on success or an X on failure, then fades."
 tags         = ["overlay", "indicator", "security", "howdy", "face"]
 dependencies = ["howdy"]
 
@@ -35,17 +35,13 @@ max             = 5000
 id    = "watch"
 entry = "service.luau"
 
-# Floating HUD. Non-interactive: never takes keyboard focus, is not dismissed
-# by clicks, and sits on the overlay layer so it can appear over fullscreen
-# windows (and, where the compositor allows it, over the lock screen).
+# Panel attached to the bar (like the control center), not floating/detached.
+# Non-interactive: never takes keyboard focus and is not dismissed by clicks.
 [[panel]]
 id    = "dialog"
 entry = "panel.luau"
-width = 200
+width = 240
 height = 132
-placement = "floating"
-position  = "top_center"
-persistent = true
+placement = "attached"
 dismiss_on_outside_click = false
 keyboard_focus = "none"
-layer = "overlay"

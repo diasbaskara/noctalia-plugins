@@ -1,28 +1,22 @@
 --!nonstrict
 -- Face ID dialog.
 --
--- A floating, non-interactive overlay that animates while Howdy scans a face.
--- It is a pure subscriber of the phase published by service.luau (and can be
--- driven by IPC). The panel is opened by the service with:
+-- An attached panel (hangs from the bar edge, like the control center). It is a
+-- pure subscriber of the phase published by service.luau (and can be driven by
+-- IPC). The panel is opened by the service with:
 --   noctalia msg panel-open diasbaskara/faceid:dialog
 -- and closes itself once the result has faded.
 --
--- Panels get onFrameTick(), so unlike a bar widget this animates at frame rate.
--- Motion is deliberately eased (cubic/quint/back) and the card slides down from
--- under the bar, so it reads as a soft iOS-style HUD rather than a square pop.
+-- Panels get onFrameTick(), so this animates at frame rate. Motion is eased
+-- (cubic/quint/back) so it reads as a soft iOS-style HUD.
 
 local HOLD_MS = tonumber(noctalia.getConfig("hold_ms")) or 1400
-local OPEN_MS = 260
+local OPEN_MS = 240
 local FADE_OUT_MS = 240
 local POP_MS = 340
 local LABEL_MS = 280
 local SCAN_MS = 1600
 local SHAKE_MS = 470
-
--- Vertical gap between the bar and the card, and how far it drifts on exit.
-local BASE_GAP = 16
-local EXIT_DRIFT = 22
-local SIDE_INSET = 14
 
 local GREEN = "#34C759"
 local RED = "#FF3B30"
@@ -85,7 +79,6 @@ local function render()
 
 	local t = phaseT()
 	local opacity = 1
-	local gap = BASE_GAP
 	local border = "outline/0.15"
 	local kids = {}
 
@@ -99,7 +92,7 @@ local function render()
 		kids[#kids + 1] = ui.glyph({ name = "face-id", size = 42 + 3 * math.sin(animT / 300), color = "primary" })
 		kids[#kids + 1] = ui.progress({
 			progress = p,
-			width = 124,
+			width = 132,
 			height = 4,
 			radius = 2,
 			fill = "primary/0.85",
@@ -132,16 +125,13 @@ local function render()
 		kids[#kids + 1] = ui.glyph({ name = "face-id", size = 38, color = "on_surface_variant" })
 	end
 
-	-- Entrance / exit: opacity plus a vertical slide.
 	if opening then
 		opacity = opacity * easeOutCubic(animT / OPEN_MS)
-		gap = BASE_GAP * easeOutCubic(animT / OPEN_MS)
 	end
 	if closing then
 		local f = clamp01((animT - closingAt) / FADE_OUT_MS)
 		local e = easeInOutQuad(f)
 		opacity = opacity * (1 - e)
-		gap = BASE_GAP + EXIT_DRIFT * e
 		if f >= 1 then
 			open = false
 			panel.close()
@@ -149,7 +139,7 @@ local function render()
 		end
 	end
 
-	local card = ui.column({
+	panel.render(ui.column({
 		gap = 10,
 		align = "center",
 		justify = "center",
@@ -159,12 +149,7 @@ local function render()
 		border = border,
 		borderWidth = 1,
 		opacity = opacity,
-	}, kids)
-
-	panel.render(ui.column({ gap = 0, align = "center", paddingH = SIDE_INSET }, {
-		ui.box({ height = gap }),
-		card,
-	}))
+	}, kids))
 end
 
 function onOpen(_context)
