@@ -1,0 +1,47 @@
+id           = "diasbaskara/faceid"
+name         = "Face ID"
+version      = "1.0.0"
+plugin_api   = 12
+author       = "diasbaskara"
+license      = "MIT"
+icon         = "face-id"
+description  = "iOS-style Face ID indicator in the bar while Howdy runs a face scan, morphing to a check on success or an X on failure."
+tags         = ["bar", "indicator", "security", "howdy", "face"]
+dependencies = ["howdy"]
+
+# The process fragment that identifies a running Howdy scan. The service
+# matches it against full command lines (`pgrep -f`). Keep the ".py" so a stray
+# `howdy` management command is not mistaken for a scan.
+[[setting]]
+key             = "process_pattern"
+type            = "string"
+label_key       = "settings.process_pattern.label"
+description_key = "settings.process_pattern.description"
+default         = "compare.py"
+
+# How long the success/fail glyph stays on the bar before it fades away.
+[[setting]]
+key             = "hold_ms"
+type            = "int"
+label_key       = "settings.hold_ms.label"
+description_key = "settings.hold_ms.description"
+default         = 1400
+min             = 400
+max             = 5000
+
+# Headless owner of the scan phase state. The bar widget is a pure subscriber.
+[[service]]
+id    = "watch"
+entry = "service.luau"
+
+[[widget]]
+id    = "bar"
+entry = "bar.luau"
+
+# Optional text drawn next to the glyph (empty = glyph only).
+  [[widget.setting]]
+  key             = "label"
+  type            = "string"
+  label_key       = "settings.label.label"
+  description_key = "settings.label.description"
+  default         = ""

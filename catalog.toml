@@ -15,3 +15,16 @@ icon = "brain"
 description = "One bar capsule listing several ai-usagebar providers (Claude, Cursor, Grok, OpenCode Go) with a details panel."
 plugin_api = 22
 tags = ["bar", "panel", "ai", "indicator", "utility"]
+
+[[plugin]]
+id = "diasbaskara/faceid"
+name = "Face ID"
+version = "1.0.0"
+updated_at = 1791265665
+added_at = 1791265665
+author = "diasbaskara"
+license = "MIT"
+icon = "face-id"
+description = "iOS-style Face ID indicator in the bar while Howdy runs a face scan, morphing to a check on success or an X on failure."
+plugin_api = 12
+tags = ["bar", "indicator", "security", "howdy"]

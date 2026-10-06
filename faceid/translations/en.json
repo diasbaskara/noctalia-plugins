@@ -1,0 +1,8 @@
+{
+  "settings.process_pattern.label": "Process match",
+  "settings.process_pattern.description": "Command-line fragment that identifies a running Howdy scan.",
+  "settings.hold_ms.label": "Result hold (ms)",
+  "settings.hold_ms.description": "How long the success/fail glyph stays before fading.",
+  "settings.label.label": "Label text",
+  "settings.label.description": "Optional text next to the glyph (empty hides it)."
+}
