@@ -1,12 +1,12 @@
 id           = "diasbaskara/faceid"
 name         = "Face ID"
-version      = "1.0.0"
-plugin_api   = 12
+version      = "1.0.1"
+plugin_api   = 30
 author       = "diasbaskara"
 license      = "MIT"
 icon         = "face-id"
-description  = "iOS-style Face ID indicator in the bar while Howdy runs a face scan, morphing to a check on success or an X on failure."
-tags         = ["bar", "indicator", "security", "howdy", "face"]
+description  = "iOS-style Face ID overlay while Howdy runs a face scan: a floating dialog that animates, morphs to a check on success or an X on failure, then fades."
+tags         = ["overlay", "indicator", "security", "howdy", "face"]
 dependencies = ["howdy"]
 
 # The process fragment that identifies a running Howdy scan. The service
@@ -19,7 +19,7 @@ label_key       = "settings.process_pattern.label"
 description_key = "settings.process_pattern.description"
 default         = "compare.py"
 
-# How long the success/fail glyph stays on the bar before it fades away.
+# How long the success/fail glyph stays before the dialog fades away.
 [[setting]]
 key             = "hold_ms"
 type            = "int"
@@ -29,19 +29,23 @@ default         = 1400
 min             = 400
 max             = 5000
 
-# Headless owner of the scan phase state. The bar widget is a pure subscriber.
+# Headless owner of the scan phase state. It opens the dialog and the panel is
+# a pure subscriber of that state.
 [[service]]
 id    = "watch"
 entry = "service.luau"
 
-[[widget]]
-id    = "bar"
-entry = "bar.luau"
-
-# Optional text drawn next to the glyph (empty = glyph only).
-  [[widget.setting]]
-  key             = "label"
-  type            = "string"
-  label_key       = "settings.label.label"
-  description_key = "settings.label.description"
-  default         = ""
+# Floating HUD. Non-interactive: never takes keyboard focus, is not dismissed
+# by clicks, and sits on the overlay layer so it can appear over fullscreen
+# windows (and, where the compositor allows it, over the lock screen).
+[[panel]]
+id    = "dialog"
+entry = "panel.luau"
+width = 200
+height = 132
+placement = "floating"
+position  = "top_center"
+persistent = true
+dismiss_on_outside_click = false
+keyboard_focus = "none"
+layer = "overlay"

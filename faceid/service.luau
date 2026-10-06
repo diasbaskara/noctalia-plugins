@@ -24,6 +24,8 @@ if HOLD_MS < 400 then HOLD_MS = 400 end
 local RESOLVE_ATTEMPTS = 5
 local RESOLVE_GAP_MS = 250
 
+local PANEL_ID = "diasbaskara/faceid:dialog"
+
 local phase = "idle"
 local phaseAt = 0
 local resultHoldUntil = 0
@@ -32,6 +34,11 @@ local resolving = false
 local resolveAttempts = 0
 local resolveNextAt = 0
 local detail = ""
+
+-- The panel closes itself once the result fades; here we only ever open it.
+local function openDialog()
+	noctalia.runAsync("noctalia msg panel-open " .. PANEL_ID)
+end
 
 local function publish()
 	noctalia.state.set("phase", phase)
@@ -109,6 +116,7 @@ local function onWatchLine(line)
 		resolving = false
 		wasLocked = false
 		setPhase("scan", "")
+		openDialog()
 		queryLocked(function(locked)
 			wasLocked = locked == true
 		end)
@@ -147,10 +155,13 @@ function onIpc(event, payload)
 	if event == "scan" then
 		resolving = false
 		setPhase("scan", "")
+		openDialog()
 	elseif event == "success" then
 		finish("success", tostring(payload or ""))
+		openDialog()
 	elseif event == "fail" then
 		finish("fail", tostring(payload or ""))
+		openDialog()
 	elseif event == "idle" or event == "clear" then
 		resolving = false
 		setPhase("idle", "")

@@ -13,7 +13,7 @@ noctalia msg plugins enable diasbaskara/ai-usage
 | Plugin | What |
 | --- | --- |
 | `diasbaskara/ai-usage` ([ai-usage/](ai-usage/)) | One bar capsule listing several [ai-usagebar](https://github.com/akitaonrails/ai-usagebar) providers side by side (Claude, Cursor, Grok, Grok Bot, OpenCode) with a details panel. |
-| `diasbaskara/faceid` ([faceid/](faceid/)) | iOS-style Face ID indicator for the bar: a face glyph with a sweeping scan bar while [Howdy](https://github.com/boltgolt/howdy) runs, morphing to a green check or a red X. |
+| `diasbaskara/faceid` ([faceid/](faceid/)) | iOS-style Face ID overlay: a floating dialog that animates while [Howdy](https://github.com/boltgolt/howdy) runs a scan, morphing to a green check or a red X. |
 
 ## Adding another plugin
 
