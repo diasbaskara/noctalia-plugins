@@ -19,12 +19,12 @@ tags = ["bar", "panel", "ai", "indicator", "utility"]
 [[plugin]]
 id = "diasbaskara/faceid"
 name = "Face ID"
-version = "1.0.3"
-updated_at = 1791273647
+version = "1.1.0"
+updated_at = 1791274379
 added_at = 1791265665
 author = "diasbaskara"
 license = "MIT"
 icon = "face-id"
-description = "iOS-style Face ID overlay while Howdy runs a face scan: an attached panel that drops from the bar, animates, morphs to a check on success or an X on failure, then fades."
+description = "iOS-style Face ID overlay while Howdy runs a face scan: a square attached panel playing a looking-for-face animation that morphs to a check on success or a red X on failure."
 plugin_api = 18
-tags = ["overlay", "indicator", "security", "howdy"]
+tags = ["overlay", "indicator", "security", "howdy", "lottie"]

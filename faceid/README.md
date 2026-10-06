@@ -1,10 +1,13 @@
 # Face ID (Noctalia plugin)
 
 An iOS-style Face ID overlay for Noctalia. While
-[Howdy](https://github.com/boltgolt/howdy) runs a face scan, an **attached panel**
-drops from the bar (the same placement the built-in control center uses) — a
-breathing face glyph with a sweeping scan bar — then morphs to a green check on
-success or a red, shaking X on failure and fades away.
+[Howdy](https://github.com/boltgolt/howdy) runs a face scan, a **square attached
+panel** drops from the bar (the same placement the built-in control center uses)
+and plays a two-part animation, then fades away.
+
+- **Looking for face** — the scanning glyph while Howdy runs.
+- **Success** — the morph to a checkmark when the face is recognized.
+- **Failure** — a red, shaking X.
 
 It is an attached panel, not a floating/detached dialog and not a bar widget.
 
@@ -18,10 +21,10 @@ Noctalia entries run in isolated VMs and share plain values through
 - **`service.luau`** (headless) — the single owner of the scan phase. It runs a
   tiny `pgrep` loop via `noctalia.runStream()` (bracket trick so the loop's own
   command line never matches itself) and publishes `phase` / `phaseAt`. On the
-  rising edge it opens the dialog; on the falling edge it resolves the result.
-- **`panel.luau`** — an attached, non-interactive panel. It subscribes to `phase`
-  and animates with `onFrameTick()`, so it runs at full frame rate. When the
-  result has faded it closes itself.
+  rising edge it opens the panel; on the falling edge it resolves the result.
+- **`panel.luau`** — an attached, non-interactive panel. It subscribes to
+  `phase` and animates with `onFrameTick()`, so it runs at full frame rate. When
+  the result has faded it closes itself.
 
 The panel is declared `placement = "attached"` (hangs from the bar, like the
 control center) with `dismiss_on_outside_click = false` and
@@ -29,13 +32,27 @@ control center) with `dismiss_on_outside_click = false` and
 stray click. Attached panels cannot be persistent, so it uses the normal panel
 slot while a scan runs.
 
+## Artwork
+
+The glyphs come from the [Face ID](https://lottiefiles.com/free-animation/face-id-4Z76hfSHSI)
+animation on LottieFiles (blue `#006DF8`). Noctalia's `ui.image` only renders the
+first frame of an animated image, so the two parts are exported to PNG frames and
+played by swapping the image path each tick:
+
+- `assets/look.png` — part 1, the looking-for-face glyph (scan state).
+- `assets/success_00.png … success_21.png` — part 2, the morph to the check.
+
+To re-export from the source animation, render it to frames and key out the
+background, then crop the two ranges (the look part is static; motion starts at
+the beginning of the success range).
+
 ## How success/fail is decided
 
 The service resolves the outcome when the Howdy process exits:
 
 | situation | result | shown |
 |---|---|---|
-| session was locked, now unlocked | success | green check |
+| session was locked, now unlocked | success | check morph |
 | session was locked, still locked | fail | red X |
 | nothing was locked (`sudo`, `doas`, `su`) | unknown | brief neutral fade |
 
@@ -62,16 +79,15 @@ nothing to place on the bar.
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `process_pattern` | string | `compare.py` | `pgrep -f` fragment that identifies a Howdy scan. |
-| `hold_ms` | int | `1400` | How long the result glyph stays before the dialog fades. |
+| `hold_ms` | int | `1400` | How long the result stays before the dialog fades. |
 
 ## Lock screen
 
-The overlay is a Noctalia surface on the `overlay` layer, so it should appear
-above fullscreen windows. Whether it renders **above Noctalia's own lock
-screen** depends on how the compositor orders an overlay layer-shell surface
-against the lock surface; if the lock screen covers it, the same effect is
-visible for `sudo`/`doas` scans, or a bar widget entry can be added back as a
-fallback.
+The overlay is a normal layer-shell surface, so it **cannot render over the lock
+screen**: Noctalia locks via the compositor's secure `ext-session-lock`, and no
+other client — plugin panel, desktop widget, or external overlay — may draw above
+it. The HUD therefore shows for **unlocked** face auth (`sudo`, `doas`, manual
+triggers), not during lock-screen unlock.
 
 ## Driving it from outside (optional)
 
@@ -99,5 +115,6 @@ calling `noctalia msg`, because the IPC socket is owned by that user's session.
 
 - `plugin.toml` — manifest, plugin settings, the service and the panel.
 - `service.luau` — Howdy process watcher, phase state owner, dialog opener.
-- `panel.luau` — the animated overlay dialog.
+- `panel.luau` — the square animated overlay panel.
+- `assets/` — the two-part Face ID artwork.
 - `translations/en.json` — settings labels.

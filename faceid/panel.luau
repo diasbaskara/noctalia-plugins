@@ -1,23 +1,33 @@
 --!nonstrict
 -- Face ID dialog.
 --
--- An attached panel (hangs from the bar edge, like the control center). It is a
--- pure subscriber of the phase published by service.luau (and can be driven by
--- IPC). The panel is opened by the service with:
+-- An attached, square panel (hangs from the bar edge, like the control center).
+-- It is a pure subscriber of the phase published by service.luau (and can be
+-- driven by IPC). The panel is opened by the service with:
 --   noctalia msg panel-open diasbaskara/faceid:dialog
 -- and closes itself once the result has faded.
 --
--- Panels get onFrameTick(), so this animates at frame rate. Motion is eased
--- (cubic/quint/back) so it reads as a soft iOS-style HUD.
+-- Artwork is the two-part "Face ID" Lottie animation (see README):
+--   part 1 "looking for face" -> assets/look.png       (looped while scanning)
+--   part 2 "success"          -> assets/success_NN.png (morph to the check)
+-- Noctalia's ui.image only shows the first frame of an animated image, so the
+-- success morph is exported to PNG frames and played by swapping the image path
+-- each frame tick.
 
 local HOLD_MS = tonumber(noctalia.getConfig("hold_ms")) or 1400
 local OPEN_MS = 240
 local FADE_OUT_MS = 240
-local POP_MS = 340
 local LABEL_MS = 280
-local SCAN_MS = 1600
+local SWEEP_MS = 1500
 local SHAKE_MS = 470
+local PULSE_MS = 1700
 
+-- Success part: 22 exported frames (~1.1s), then the last frame is held.
+local SUCCESS_N = 22
+local SUCCESS_MS = 50
+
+-- Kept small enough that content never overflows the 180x180 panel.
+local IMG = 104
 local GREEN = "#34C759"
 local RED = "#FF3B30"
 
@@ -59,15 +69,6 @@ local function easeInOutQuad(x)
 	return 1 - (u * u) / 2
 end
 
--- Slight overshoot, for the result glyph.
-local function easeOutBack(x)
-	x = clamp01(x)
-	local c1 = 1.70158
-	local c3 = c1 + 1
-	local u = x - 1
-	return 1 + c3 * u * u * u + c1 * u * u
-end
-
 local function phaseT()
 	return animT - phaseAnimAt
 end
@@ -83,16 +84,17 @@ local function render()
 	local kids = {}
 
 	if visualPhase == "scan" then
-		-- Sweeping bar, eased at both ends so it does not snap at the turn.
-		local cycle = (animT % SCAN_MS) / SCAN_MS
+		-- Part 1: looking-for-face, looped with a gentle breathing pulse plus a
+		-- sweeping line, until the phase turns into success or fail.
+		local pulse = 1 + 0.035 * math.sin((animT % PULSE_MS) / PULSE_MS * math.pi * 2)
+		local size = math.floor(IMG * pulse + 0.5)
+		local cycle = (animT % SWEEP_MS) / SWEEP_MS
 		local tri = cycle < 0.5 and (cycle * 2) or (2 - cycle * 2)
 		local p = easeInOutQuad(tri)
-		-- Very subtle breathing so the card feels alive.
-		local breathe = 0.985 + 0.015 * math.sin(animT / 420)
-		kids[#kids + 1] = ui.glyph({ name = "face-id", size = 42 + 3 * math.sin(animT / 300), color = "primary" })
+		kids[#kids + 1] = ui.image({ path = "assets/look.png", width = size, height = size })
 		kids[#kids + 1] = ui.progress({
 			progress = p,
-			width = 132,
+			width = 116,
 			height = 4,
 			radius = 2,
 			fill = "primary/0.85",
@@ -100,19 +102,20 @@ local function render()
 		})
 		local labelA = 0.6 + 0.4 * math.sin(animT / 420)
 		kids[#kids + 1] = ui.label({ text = "Face ID", fontSize = 12, color = "on_surface_variant", opacity = labelA })
-		opacity = breathe
 	elseif visualPhase == "success" then
-		local pop = easeOutBack(math.min(1, t / POP_MS))
-		local labelA = easeOutCubic(math.max(0, (t - 90) / LABEL_MS))
-		border = "#34C75947"
-		kids[#kids + 1] = ui.glyph({ name = "circle-check", size = 40 + 14 * pop, color = GREEN })
+		-- Part 2: the morph to the check, then hold the last frame.
+		local idx = math.min(SUCCESS_N - 1, math.floor(t / SUCCESS_MS))
+		local path = string.format("assets/success_%02d.png", idx)
+		local labelA = easeOutCubic(math.max(0, (t - SUCCESS_N * SUCCESS_MS * 0.55) / LABEL_MS))
+		border = "#006DF847"
+		kids[#kids + 1] = ui.image({ path = path, width = IMG, height = IMG })
 		kids[#kids + 1] = ui.label({ text = "Recognized", fontSize = 12, fontWeight = "semibold", color = GREEN, opacity = labelA })
 	elseif visualPhase == "fail" then
-		local pop = easeOutBack(math.min(1, t / POP_MS))
+		local pop = easeOutQuint(math.min(1, t / 300))
 		local shake = math.sin(t / 30) * 8 * (1 - easeOutQuint(math.min(1, t / SHAKE_MS)))
 		local labelA = easeOutCubic(math.max(0, (t - 120) / LABEL_MS))
 		border = "#FF3B3047"
-		local glyph = ui.glyph({ name = "circle-x", size = 40 + 12 * pop, color = RED })
+		local glyph = ui.glyph({ name = "circle-x", size = 44 + 12 * pop, color = RED })
 		kids[#kids + 1] = ui.row({ gap = 0, align = "center" }, {
 			ui.box({ width = math.max(0, shake) }),
 			glyph,
@@ -122,7 +125,7 @@ local function render()
 	else
 		-- "done": nothing was locked, so the face result is not observable.
 		opacity = 1 - easeOutCubic(t / math.min(HOLD_MS, 700))
-		kids[#kids + 1] = ui.glyph({ name = "face-id", size = 38, color = "on_surface_variant" })
+		kids[#kids + 1] = ui.image({ path = "assets/look.png", width = IMG, height = IMG })
 	end
 
 	if opening then
@@ -140,10 +143,10 @@ local function render()
 	end
 
 	panel.render(ui.column({
-		gap = 10,
+		gap = 8,
 		align = "center",
 		justify = "center",
-		padding = 16,
+		padding = 12,
 		fill = "surface/0.92",
 		radius = 22,
 		border = border,
