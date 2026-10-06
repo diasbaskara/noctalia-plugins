@@ -1,6 +1,6 @@
 id           = "diasbaskara/faceid"
 name         = "Face ID"
-version      = "1.2.0"
+version      = "1.2.1"
 plugin_api   = 18
 author       = "diasbaskara"
 license      = "MIT"

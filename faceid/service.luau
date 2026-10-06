@@ -7,12 +7,13 @@
 --
 --   scan    -> a `compare.py` process appeared
 --   success -> the scan finished and the face was recognised
---   idle    -> the scan timed out; the panel just closes (no error state)
+--   idle    -> the scan did not succeed; the panel just closes (no error state)
 --
--- Success vs timeout is decided per context:
---   * locked session  -> success when the lock is released, timeout otherwise
---   * unlocked (sudo) -> success when the scan was shorter than Howdy's timeout,
---                        timeout when it ran the full window
+-- There is no error state. The outcome is decided per context:
+--   * locked session  -> success when the lock is released, otherwise close
+--   * unlocked (sudo) -> always success; Howdy's result is not observable from
+--                        outside and both success and timeout take about the
+--                        same time, so the panel plays the success animation
 --
 -- An external hook can drive it directly:
 --   noctalia msg plugin diasbaskara/faceid:watch all success
@@ -24,20 +25,6 @@ if HOLD_MS < 400 then HOLD_MS = 400 end
 
 local RESOLVE_ATTEMPTS = 5
 local RESOLVE_GAP_MS = 250
-local TIMEOUT_MARGIN_MS = 300
-
--- Howdy's own timeout decides the "ran the full window" case.
-local function howdyTimeoutMs()
-	local raw = noctalia.readFile("/usr/local/etc/howdy/config.ini")
-	if raw ~= nil then
-		local s = raw:match("[\n\r]%s*timeout%s*=%s*(%d+)") or raw:match("^%s*timeout%s*=%s*(%d+)")
-		if s ~= nil then
-			return tonumber(s) * 1000
-		end
-	end
-	return 3000
-end
-local TIMEOUT_MS = howdyTimeoutMs()
 
 local phase = "idle"
 local phaseAt = 0
@@ -46,7 +33,6 @@ local wasLocked = false
 local resolving = false
 local resolveAttempts = 0
 local resolveNextAt = 0
-local scanStartMs = 0
 
 local function publish()
 	noctalia.state.set("phase", phase)
@@ -88,7 +74,7 @@ local function finishSuccess()
 	hold()
 end
 
--- Timeout (or an unreadable result): close the panel, no error state.
+-- Not a success: close the panel, no error state.
 local function finishClose()
 	resolving = false
 	setPhase("idle")
@@ -98,11 +84,9 @@ local function pollResolve()
 	queryLocked(function(nowLocked)
 		if nowLocked == false then
 			finishSuccess()
-		elseif nowLocked == nil then
-			finishClose()
 		else
 			resolveAttempts = resolveAttempts + 1
-			if resolveAttempts >= RESOLVE_ATTEMPTS then
+			if resolveAttempts >= RESOLVE_ATTEMPTS or nowLocked == nil then
 				finishClose()
 			else
 				resolveNextAt = noctalia.nowMs() + RESOLVE_GAP_MS
@@ -121,14 +105,9 @@ local function resolveResult()
 		resolveAttempts = 0
 		pollResolve()
 	else
-		-- sudo/doas/su: a short scan means the face was recognised; a scan that
-		-- ran the full Howdy timeout did not. Result is otherwise unobservable.
-		local duration = noctalia.nowMs() - scanStartMs
-		if duration < (TIMEOUT_MS - TIMEOUT_MARGIN_MS) then
-			finishSuccess()
-		else
-			finishClose()
-		end
+		-- sudo/doas/su: Howdy's result is not observable, so play the success
+		-- animation. There is no error state to show instead.
+		finishSuccess()
 	end
 end
 
@@ -137,7 +116,6 @@ local function onWatchLine(line)
 	if line == "scan" and phase == "idle" then
 		resolving = false
 		wasLocked = false
-		scanStartMs = noctalia.nowMs()
 		setPhase("scan")
 		openDialog()
 		queryLocked(function(locked)

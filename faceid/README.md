@@ -52,16 +52,16 @@ starts at frame 18 into the success morph).
 
 The result is decided when the Howdy process exits:
 
-| context | success | timeout |
-|---|---|---|
-| locked session | the lock is released | still locked |
-| unlocked (`sudo`, `doas`, `su`) | the scan was shorter than Howdy's `timeout` | it ran the full window |
+| context | behaviour |
+|---|---|
+| locked session | success when the lock is released; otherwise the panel just closes |
+| unlocked (`sudo`, `doas`, `su`) | always plays the success animation |
 
 A timeout just closes the panel — there is no error state. The locked case polls
 briefly for the unlock, because the session releases the lock a moment after the
-Howdy process exits. The unlocked case has no observable result, so it compares
-the scan duration against Howdy's `timeout` read from
-`/usr/local/etc/howdy/config.ini` (falling back to 3 s).
+Howdy process exits. For `sudo`/`doas`/`su` there is no observable result, and a
+successful scan and a timeout take about the same time, so the panel always plays
+the success animation.
 
 ## Install
 
