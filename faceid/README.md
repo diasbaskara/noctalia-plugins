@@ -39,12 +39,14 @@ animation on LottieFiles (blue `#006DF8`). Noctalia's `ui.image` only renders th
 first frame of an animated image, so the two parts are exported to PNG frames and
 played by swapping the image path each tick:
 
-- `assets/look.png` — part 1, the looking-for-face glyph (scan state).
+- `assets/look.png` — part 1, the looking-for-face glyph, shown while scanning.
+  The source holds this part still (frames 0–17 are identical), so no motion is
+  added; the panel keeps it on screen until the scan turns into success or fail.
 - `assets/success_00.png … success_21.png` — part 2, the morph to the check.
 
-To re-export from the source animation, render it to frames and key out the
-background, then crop the two ranges (the look part is static; motion starts at
-the beginning of the success range).
+Only the Lottie artwork is drawn — no zoom, sweep, or shake. To re-export, render
+the source to frames and key out the background, then crop the two ranges (motion
+starts at frame 18 into the success morph).
 
 ## How success/fail is decided
 
